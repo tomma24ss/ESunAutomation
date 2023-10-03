@@ -18,7 +18,6 @@ CSV_OUTPUT_FILE="pricesall.csv"
 # Create or clear the CSV output file
 echo "Date,Hour,Price" > "$CSV_OUTPUT_FILE"
 
-# Loop through the most recent XML file
 while IFS= read -r line; do
   if [[ $line == *"<start>"* ]]; then
     date=$(echo "$line" | xmlstarlet sel -t -v "//start")
