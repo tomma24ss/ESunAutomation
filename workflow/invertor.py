@@ -79,6 +79,37 @@ class SolarDataHandler:
             return None
         finally:
             self.disconnect()
+    def fetch_pac_data_today(self):
+        try:
+            if not self.conn:
+                if not self.connect():
+                    return []
+
+            cursor = self.conn.cursor()
+
+            # Replace 'vwspotdata' with your table name and 'timestamp_column' with the actual timestamp column name
+            table_name = "vwspotdata"
+            timestamp_column = "TimeStamp"
+
+            # Get today's date in the format "YYYY-MM-DD"
+            today_date = datetime.date.today()
+
+            # Construct the SQL query to select Pac values for today's date
+            query = f"SELECT {timestamp_column}, Pac1 FROM {table_name} WHERE DATE({timestamp_column}) = ?;"
+
+            # Execute the query with the date as a parameter
+            cursor.execute(query, (today_date,))
+
+            # Fetch all the Pac data
+            pac_data = cursor.fetchall()
+
+            return pac_data
+
+        except sqlite3.Error as e:
+            print("SQLite error:", e)
+            return []
+        finally:
+            self.disconnect()
 
 if __name__ == "__main__":
     db_file = "../smadata/SBFspot.db"
