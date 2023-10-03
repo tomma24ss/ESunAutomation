@@ -10,21 +10,25 @@ RELAY_PIN = 5  # Replace with the actual GPIO pin number you want to use
 GPIO.setup(RELAY_PIN, GPIO.OUT)
 
 # Initialize the SolarDataHandler with your database file path
-db_file = "../../smadata/SBFspot.db"  # Adjust the path as needed
+db_file = "../../smadata/SBFspot.db"
+bash_script_Eprices = "./workflow/get_electricity_prices.sh"
 data_handler = SolarDataHandler(db_file)
 
 # Function to check grid injection and electricity prices conditions
 def check_conditions():
+    actief = False
     # Check condition 1: Grid injection < 1500W for 10+ minutes
-    # Replace with actual logic to get grid injection data
     wattages = data_handler.fetch_pac_data_today()
-    print(wattages)
-    # if grid_injection < 1500 and is_inactive_for_minutes(grid_injection, 10):
-    #     return True
+    last2_wattage = wattages[0:2] # last 10 minute (2 rows)
+    print(last2_wattage)
+    if(last2_wattage[0][1] < 1500 and last2_wattage[1][1] < 1500): # 10 minuten onder 1500
+        actief = True
+    if(last2_wattage[0][1] > 1500 and last2_wattage[1][1] > 1500): # 10 minuten boven 1500
+        actief = False
 
     # Check condition 2: Duurste uren
-    # if is_duurste_uren():
-    #     return True
+    if(is_duurste_uren()):
+        actief = True
 
     return False
 
@@ -41,7 +45,7 @@ def get_grid_injection_data():
 def is_duurste_uren():
     # Use your electricity price script to check if it's duurste uren
     # Example:
-    subprocess.call(["./get_electricity_prices.sh"])  # Execute your bash script to get prices
+    subprocess.call([bash_script_Eprices])  # Execute your bash script to get prices
     # Implement logic to check if current time is within duurste uren based on the CSV data
     # Example:
     current_time = time.strftime("%H:%M")
