@@ -1,0 +1,164 @@
+
+2023-10-06 23:38:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:38:01.975182
+2023-10-06 23:38:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:38:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:38:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:38:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:39:02 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:39:02.177836
+2023-10-06 23:39:02 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:39:02 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:39:02 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:39:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:41:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:41:01.466764
+2023-10-06 23:41:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:41:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:41:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:41:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:42:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:42:01.669167
+2023-10-06 23:42:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:42:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:42:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:42:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:43:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:43:01.868924
+2023-10-06 23:43:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:43:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:43:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:43:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:44:02 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:44:02.118775
+2023-10-06 23:44:02 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:44:02 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:44:02 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:44:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:45:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:45:01.274353
+2023-10-06 23:45:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: 'NoneType' object is not subscriptable
+2023-10-06 23:45:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+No data file found for today or yesterday.
+2023-10-06 23:46:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:46:01.430653
+2023-10-06 23:46:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: 'NoneType' object is not subscriptable
+2023-10-06 23:46:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+No data file found for today or yesterday.
+2023-10-06 23:47:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:47:01.590114
+2023-10-06 23:47:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:47:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:47:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:47:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:48:01 - DEBUG - [32mDEBUG[0m: Checking conditions. minute: 2023-10-06 23:48:01.805682
+2023-10-06 23:48:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:48:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:48:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:48:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:49:02 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:49:02.033316
+2023-10-06 23:49:02 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:49:02 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:49:02 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:49:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:51:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:51:01.365772
+2023-10-06 23:51:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-06 23:51:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:52:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:52:01.576521
+2023-10-06 23:52:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:52:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:52:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:52:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:53:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:53:01.797191
+2023-10-06 23:53:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:53:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:53:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:53:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:54:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:54:01.956600
+2023-10-06 23:54:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:54:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:54:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:54:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-06 23:59:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-06 23:59:01.439665
+2023-10-06 23:59:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-06 23:59:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-06 23:59:01 - DEBUG - [32mDEBUG[0m: Zit in duurste uren
+2023-10-06 23:59:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:00:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:00:01.601721
+2023-10-07 00:00:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:00:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:01:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:01:01.789076
+2023-10-07 00:01:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:01:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:04:02 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:04:02.047639
+2023-10-07 00:04:02 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:04:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:05:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:05:01.198545
+2023-10-07 00:05:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:05:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:06:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:06:01.371913
+2023-10-07 00:06:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:06:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:07:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:07:01.506211
+2023-10-07 00:07:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:07:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:08:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:08:01.699784
+2023-10-07 00:08:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:08:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:09:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:09:01.846381
+2023-10-07 00:09:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:09:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:10:02 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:10:02.039982
+2023-10-07 00:10:02 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:10:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:11:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:11:01.199381
+2023-10-07 00:11:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:11:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:12:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:12:01.378120
+2023-10-07 00:12:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:12:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:13:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:13:01.590526
+2023-10-07 00:13:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:13:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+No data file found for today.
+2023-10-06
+2023-10-07 00:14:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:14:01.776946
+2023-10-07 00:14:01 - ERROR - [31mERROR[0m: An error occurred while checking conditions: No data file found for today or yesterday.
+2023-10-07 00:14:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+No data file found for today.
+2023-10-06
+2023-10-07 00:15:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:15:01.912375
+2023-10-07 00:15:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:15:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:15:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:16:02 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:16:02.110289
+2023-10-07 00:16:02 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:16:02 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:16:02 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+Traceback (most recent call last):
+  File "/home/pi/Automation/ESunAutomation/run.py", line 2, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+2023-10-07 00:18:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:18:01.439142
+2023-10-07 00:18:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:18:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:18:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:19:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:19:01.668965
+2023-10-07 00:19:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:19:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:19:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+Traceback (most recent call last):
+  File "/home/pi/Automation/ESunAutomation/run.py", line 13, in <module>
+    solar_automation = SolarAutomation(relay_pin_boiler, db_file_path, csv_file_path, vwspotdata_file_path)
+  File "/home/pi/Automation/ESunAutomation/src/solar_automation.py", line 22, in __init__
+    GPIO.setup(self.relay_pin, GPIO.OUT)
+ValueError: Channel must be an integer or list/tuple of integers
+Traceback (most recent call last):
+  File "/home/pi/Automation/ESunAutomation/run.py", line 14, in <module>
+    solar_automation = SolarAutomation(relay_pin_boiler, db_file_path, csv_file_path, vwspotdata_file_path)
+  File "/home/pi/Automation/ESunAutomation/src/solar_automation.py", line 22, in __init__
+    GPIO.setup(self.relay_pin, GPIO.OUT)
+ValueError: Channel must be an integer or list/tuple of integers
+2023-10-07 00:22:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:22:01.243261
+2023-10-07 00:22:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:22:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:22:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:23:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:23:01.427439
+2023-10-07 00:23:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:23:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:23:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False
+2023-10-07 00:24:01 - DEBUG - [32mDEBUG[0m: Checking conditions at minute: 2023-10-07 00:24:01.598009
+2023-10-07 00:24:01 - DEBUG - [32mDEBUG[0m: Avg W for 10 minutes: 3884.0199999999995
+2023-10-07 00:24:01 - DEBUG - [32mDEBUG[0m: 10 minutes above 1000W
+2023-10-07 00:24:01 - DEBUG - [32mDEBUG[0m: Pin 5 actief en OK_TO_SWITCH is False

@@ -12,6 +12,7 @@ class SolarDataHandler:
         try:
             # Connect to the SQLite database
             self.conn = sqlite3.connect(self.db_file)
+            print("Connected to the database.")
             return True
         except sqlite3.Error as e:
             print("SQLite error:", e)
@@ -21,11 +22,13 @@ class SolarDataHandler:
         # Close the database connection
         if self.conn:
             self.conn.close()
+            print("Disconnected from the database.")
 
     def fetch_and_append_data_today(self):
         try:
             if not self.conn:
                 if not self.connect():
+                    print("Failed to connect to the database. Cannot fetch data.")
                     return
 
             cursor = self.conn.cursor()
@@ -58,6 +61,10 @@ class SolarDataHandler:
                     for record in data:
                         file.write(','.join(map(str, record)) + '\n')
 
+                print(f"Data for {today_date} appended to {output_file}")
+            else:
+                print(f"No data found for {today_date}.")
+
         except sqlite3.Error as e:
             print("SQLite error:", e)
         finally:
@@ -65,7 +72,7 @@ class SolarDataHandler:
 
 if __name__ == "__main__":
     db_file = "/home/pi/smadata/SBFspot.db"
-    output_folder = "./data"  # Change to the desired folder path
+    output_folder = "/home/pi/Automation/ESunAutomation/src/Invertor/vwspotdata"  # Change to the desired folder path
     handler = SolarDataHandler(db_file, output_folder)
 
     # Fetch today's data and append it to the file
