@@ -1,6 +1,7 @@
 import sqlite3
 import datetime
 import os
+from dotenv import load_dotenv
 
 class SolarDataHandler:
     def __init__(self, db_file, output_folder):
@@ -71,8 +72,9 @@ class SolarDataHandler:
             self.disconnect()
 
 if __name__ == "__main__":
-    db_file = "/home/pi/smadata/SBFspot.db"
-    output_folder = "/home/pi/Automation/ESunAutomation/src/Invertor/vwspotdata"  # Change to the desired folder path
+    load_dotenv() # Load environment variables from .env file
+    db_file = os.getenv("DB_FILE_PATH")
+    output_folder = os.getenv("VWSPOTDATA_FILE_PATH")
     handler = SolarDataHandler(db_file, output_folder)
 
     # Fetch today's data and append it to the file

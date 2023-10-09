@@ -1,0 +1,11 @@
+2023-10-08 23:50:45 - ERROR - [31mERROR[0m: Error writing data: 'MyLogger' object has no attribute 'info'
+2023-10-08 23:51:01 - ERROR - [31mERROR[0m: Error writing data: 'MyLogger' object has no attribute 'info'
+2023-10-08 23:51:22 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:52:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:53:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:54:02 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:55:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:56:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:57:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:58:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt
+2023-10-08 23:59:01 - DEBUG - [32mDEBUG[0m: Data written to /home/pi/Automation/ESunAutomation/src/GridPower/griddata/20231008.txt

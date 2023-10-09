@@ -3,7 +3,7 @@ import os
 import datetime
 
 class MyLogger:
-    def __init__(self, log_directory='/home/pi/Automation/ESunAutomation/logs', log_level=logging.DEBUG):
+    def __init__(self, log_directory='/home/pi/Automation/ESunAutomation/logs/runlogs', log_level=logging.DEBUG):
         self.log_directory = log_directory
 
         # Create the log directory if it doesn't exist
