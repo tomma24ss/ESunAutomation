@@ -58,7 +58,7 @@ class SolarDataHandler:
                 output_file = os.path.join(self.output_folder, f"{today_date}.txt")
 
                 # Append data to the file
-                with open(output_file, 'a') as file:
+                with open(output_file, 'w') as file:
                     for record in data:
                         file.write(','.join(map(str, record)) + '\n')
 

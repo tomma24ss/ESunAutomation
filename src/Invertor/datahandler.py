@@ -11,6 +11,7 @@ class DataHandler:
         data = []
         try:
             with open(file_path, 'r') as file:
+                
                 for line in file:
                     data.append(line.strip().split(','))
         except FileNotFoundError:
@@ -31,15 +32,10 @@ class DataHandler:
             return self.filter_wattages(self.read_date_txt(yesterday_file))
 
         raise FileNotFoundError("No data file found for today or yesterday.")
-    def filter_wattages(self, data):
-        # Assuming the wattages are at positions 25 and 26 in each sub-list
-        # You can adjust the positions based on your actual data structure
+    def filter_wattages(self, data): 
         filtered_data = []
-
-        for entry in data:
+        for entry in data:  
             if len(entry) >= 27:  # Ensure the list is long enough
-                wattage_1 = entry[25] # Assuming the wattages are at positions 25 and 26 in each sub-list
-                wattage_2 = entry[26] # Assuming the wattages are at positions 25 and 26 in each sub-list
-                filtered_data.append([wattage_1, wattage_2])
-
+                wattage_1 = entry[21] # Assuming the wattages are at positions 25 and 26 in each sub-list
+                filtered_data.append(wattage_1) 
         return filtered_data

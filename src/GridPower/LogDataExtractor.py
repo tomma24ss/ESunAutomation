@@ -22,7 +22,6 @@ class LogDataExtractor:
         if log_files:
             # Sort log files by modification time (newest first)
             log_files.sort(key=os.path.getmtime, reverse=True)
-            print(log_files)
             return log_files[0]  # Return the latest log file
         else:
             return None
@@ -62,10 +61,9 @@ class LogDataExtractor:
         
         if match:
             current_inverter_time = match.group(1)
-            print("Current Inverter Time:", current_inverter_time)
             return current_inverter_time
         else:
-            print("Current Inverter Time not found in the text.")
+            self.logger.error(f'No timestamp found in {log_data}')  # Log an error message instead of printing
 
     def extract_grid_power_out(self, log_data):
 

@@ -1,22 +1,38 @@
 import RPi.GPIO as GPIO
 from datetime import datetime, timedelta
-import csv,os,time
+import csv,os,time, subprocess
 from src.Invertor.datahandler import DataHandler
 from src.Logger.logger import MyLogger
+from src.Handlers.duurste_uren_handler import DuursteUrenHandler
+from src.SolarForecast.solar_forecast import SolarProductionForecast
+from src.Weather.gettemp import Temp
 
 class SolarBoilerAutomation:
-    def __init__(self, relay_pin_heatpump,relay_pin_boiler, db_file, csv_file_path, vwspotdata_file_path,griddata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False):
+    def __init__(self, relay_pin_heatpump,relay_pin_boiler, db_file, csv_file_path, vwspotdata_file_path,griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False, HEATPUMP_TOGGLE_WATTAGE=300, BOILER_TOGGLE_WATTAGE=1200):
         self.relay_pin_heatpump = relay_pin_heatpump
         self.relay_pin_boiler = relay_pin_boiler
         self.db_file = db_file
         self.csv_file_path = csv_file_path
         self.vwspotdata_file_path = vwspotdata_file_path
         self.griddata_file_path = griddata_file_path
+        self.weatherdata_file_path = weatherdata_file_path
+        self.productionforecastdata_file_path = productionforecastdata_file_path
         self.OK_TO_SWITCH = OK_TO_SWITCH  # Set to True to start the automation
+        self.HEATPUMP_TOGGLE_WATTAGE = HEATPUMP_TOGGLE_WATTAGE
+        self.BOILER_TOGGLE_WATTAGE = BOILER_TOGGLE_WATTAGE
         self.AANTAL_DUURSTE_UREN_6_24 = AANTAL_DUURSTE_UREN_6_24
         self.AANTAL_DUURSTE_UREN_0_6 = AANTAL_DUURSTE_UREN_0_6
-        self.data_handler = DataHandler(vwspotdata_file_path)
+        latitude = 50.93978
+        longitude = 3.7994
+        inclination = 25  # In degrees
+        azimuth = 0  # In degrees
+        capacity = 12  # In kWp
+
+        self.temp_handler = Temp(latitude, longitude)
+        self.solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, productionforecastdata_file_path)
+        self.data_handler = DataHandler(vwspotdata_file_path, weatherdata_file_path)
         self.logger = MyLogger()
+        self.duurste_uren_handler = DuursteUrenHandler(csv_file_path, AANTAL_DUURSTE_UREN_6_24, AANTAL_DUURSTE_UREN_0_6, self.logger)
 
         # Set up GPIO
         GPIO.setmode(GPIO.BOARD)
@@ -24,30 +40,53 @@ class SolarBoilerAutomation:
         GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
 
     def check_conditions_Heatpump(self):
-        actief = True
+        actief = True   
         try:
-            # Check condition 1: Grid injection < 1500W for 10+ minutes
+            # Check condition 1: Grid injection < 600W for 10+ minutes
             wattages = self.data_handler.read_lastdata_txt()
             last_10_wattages = wattages[:10]  # Get the last 10 rows (representing 10 minutes)
-
+            self.logger.debug("Heatpump - Last 10 minutes: " + str(last_10_wattages))
             # Convert the wattage values to floats
-            wattage_values = [float(row[1]) for row in last_10_wattages]
-            self.logger.debug("Heatpump - Avg W for 10 minutes: " + str(sum(wattage_values) / len(wattage_values)))
-            if all(wattage < 1500 for wattage in wattage_values):  # All 10 minutes under 1500
-                self.logger.debug("Heatpump - 10 minutes under 1000W")
+            wattage_values = [float(w) for w in last_10_wattages] if last_10_wattages else []
+            self.logger.debug("Heatpump - Avg W for 10 minutes: " + str(sum(wattage_values) / len(wattage_values) ))
+            if all(wattage < self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
+                self.logger.debug(f"Heatpump - 10 minutes under {self.HEATPUMP_TOGGLE_WATTAGE}W")
                 actief = True
-            elif all(wattage > 1500 for wattage in wattage_values):  # All 10 minutes above 1500
-                self.logger.debug("Heatpump - 10 minutes above 1000W")
+            elif all(wattage > self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
+                self.logger.debug(f"Heatpump - 10 minutes above {self.HEATPUMP_TOGGLE_WATTAGE}W")
                 actief = False
+
+            # TODO
             # Condition 2: Determine the number of hours to be active based on the day-ahead calculation
             # and solar production forecast
-            # day_ahead_hours = self.calculate_day_ahead_hours()  # Replace with the actual method
-            # solar_production_forecast = self.get_solar_production_forecast()  # Replace with the actual method
+            day_ahead_hours_today = self.duurste_uren_handler.get_alle_uren()  # Replace with the actual method
+            
+
+
+            #solar forecast
+            # yesterday = datetime.now() - timedelta(days=1)
+            # formatted_date = yesterday.strftime("%Y%m%d")
+            # yesterday_filename = f"{formatted_date}.txt"
+            # solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)['result']['watts']
+            # self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
+
+
+            #weather
+            current_date = datetime.now().strftime("%Y%m%d")
+            weather_data = self.temp_handler.readfile(f"{current_date}.txt")
+            next_day_temperature, next_day_cloudcover = self.temp_handler.filter_next_day_data(weather_data)
+    
+            avg_temperature = self.temp_handler.calculate_avg_temperature(next_day_temperature)
+            
+            
+            
+            
+            self.logger.debug(f"Heatpump - Avg temp today: {round(avg_temperature, 2)}")
 
             # additional_hours = solar_production_forecast // 5  # Increase hours for every 5kWh of solar production forecast
-            # active_hours = day_ahead_hours + additional_hours
+            # active_hours = day_ahead_hours_today + additional_hours
 
-            # # Check if you need to be active based on the calculated hours
+            # Check if you need to be active based on the calculated hours
             # current_hour = self.get_current_hour()  # Replace with the actual method to get the current hour
             # if current_hour < active_hours:
             #     actief = True
@@ -62,110 +101,56 @@ class SolarBoilerAutomation:
     def check_conditions_boiler(self):
         actief = True
         try:
-            # Condition 1: Check if the production of 1 inverter is < 600W for longer than 10 minutes,
+            X_waarde = self.BOILER_TOGGLE_WATTAGE if GPIO.input(self.relay_pin_boiler) ==  GPIO.HIGH else 0
             # until the production of 1 inverter is higher than 400W for 10 minutes
             grid_data = self.get_last_50_grid_data()  # Replace with the actual method to get inverter production
-            print(grid_data)
             consecutive_low_minutes = 0
             consecutive_high_minutes = 0
 
-            for grid_in in grid_data:
-                if grid_in < 600:
+            lastdata = grid_data[-1]
+            grid_in_now = float(lastdata['gridin']) if lastdata['gridin'] != 'N/A' else 0
+            grid_out_now = float(lastdata['gridout']) if lastdata['gridout'] != 'N/A' else 0
+            self.logger.debug("Boiler - Grid in: " + str(grid_in_now) + " Grid out: " + str(grid_out_now))
+            for data in grid_data[-10:]:
+                grid_in = float(data['gridin']) if data['gridin'] != 'N/A' else 0
+                #grid_out = float(data['gridout']) if data['gridout'] != 'N/A' else 0
+                if grid_in < X_waarde:
                     consecutive_low_minutes += 1
                     consecutive_high_minutes = 0
                 else:
                     consecutive_low_minutes = 0
                     consecutive_high_minutes += 1
+                    #self.logger.debug("Boiler - Consecutive high minutes: " + str(consecutive_high_minutes))
+                     
 
-                if consecutive_low_minutes >= 10 and consecutive_high_minutes >= 10:
+                if consecutive_low_minutes >= 10 or consecutive_high_minutes >= 10:
                     break  # Exit the loop if both conditions are met
 
-            if consecutive_low_minutes >= 10 and consecutive_high_minutes >= 10:
+            if consecutive_high_minutes >= 10:
                 actief = True
-                self.logger.debug("Boiler - 10 minutes above 600W")
+                self.logger.debug(f"Boiler - 10 minutes above {self.BOILER_TOGGLE_WATTAGE}W grid in")
             else:
                 actief = False
-                self.logger.debug("Boiler - 10 minutes under 600W")
+                self.logger.debug(f"Boiler - 10 minutes under {self.BOILER_TOGGLE_WATTAGE}W grid in")
+                return actief 
+
 
             # Check condition 2: Duurste uren
-            if(self.is_duurste_uren()):
-                actief = True
+            if(self.duurste_uren_handler.is_duurste_uren()):
                 self.logger.debug("Boiler - Zit in duurste uren")
+            elif(self.duurste_uren_handler.best_uur_wachten(2)): #2 uur nodig om boiler op te warmen ? wacht nog een uur want gooedkopere uren
+                self.logger.debug("Boiler - Best uur wachten")  
+            else:
+                actief = False
+                self.logger.debug("Boiler - Zit niet in duurste uren") #boiler aan
+                self.duurste_uren_handler 
 
-            self.logger.debug("Boiler - Actief for boiler: " + str(actief))
 
         except Exception as e:
             self.logger.error("Boiler - An error occurred while checking conditions: " + str(e))
-            actief = False
+            actief = True
 
         return actief
-        
-    # Replace with your actual logic to check if it's duurste uren
-    def is_duurste_uren(self):
-        try:
-            duurste_uren = self.get_duurste_uren()
-            hours_array = [row[1] for row in duurste_uren]
-            now = datetime.now().strftime("%H")
-            # print(hours_array) #debug
-            # print(now)
-            return now in hours_array
-        except Exception as e:
-            self.logger.error("An error occurred while checking duurste uren: " + str(e))
-            return False
-
-    def get_duurste_uren(self):
-        try:
-            alle_uren = []
-            with open(self.csv_file_path, newline='') as csvfile:
-                reader = csv.reader(csvfile, delimiter=',', quotechar='"')
-                next(reader, None)  # skip the headers  
-                for row in reader:
-                    alle_uren.append(row)
-            start_time = '06'
-            end_time = '24'
-            end_time_00 = '00'
-            hours_06_to_24 = []
-            hours_00_to_06 = []
-            for row in alle_uren:
-                time = row[1].zfill(2)  # Ensure two-digit format with leading zeros
-                if start_time <= time <= end_time:
-                    hours_06_to_24.append(row)
-                if end_time_00 <= time < start_time:
-                    hours_00_to_06.append(row)
-            hours_06_to_24.sort(key=lambda x: float(x[2]), reverse=True)
-            hours_00_to_06.sort(key=lambda x: float(x[2]), reverse=True)
-            joined = hours_06_to_24[0:self.AANTAL_DUURSTE_UREN_6_24] + hours_00_to_06[0:self.AANTAL_DUURSTE_UREN_0_6]
-            joined.sort(key=lambda x: float(x[2]), reverse=True)
-            return joined
-        except Exception as e:
-            self.logger.error("An error occurred while getting duurste uren: " + str(e))
-            return []
-    def get_last_grid_data(self):
-        try:
-            # Get the path to the date.txt file for the current day
-            current_date = datetime.now().strftime("%Y%m%d")
-            data_file_path = os.path.join(self.griddata_file_path, f'{current_date}.txt')
-
-            # Read the contents of the file
-            with open(data_file_path, 'r') as data_file:
-                lines = data_file.readlines()
-
-            # Extract the last line (last minute) and parse the data
-            if lines:
-                last_line = lines[-1].strip()
-                parts = last_line.split()
-                if len(parts) >= 4:  # Ensure there are at least 4 values
-                    grid_data = parts[3]
-                    return grid_data
-                else:
-                    self.logger.error("Invalid data format in the last minute of the file.")
-            else:
-                self.logger.error("No data found in the file for the current day.")
-
-        except Exception as e:
-            self.logger.error("An error occurred while getting grid data: " + str(e))
-
-        return "N/A"
     def get_last_50_grid_data(self):
         try:
             # Get the path to the date.txt file for the current day
@@ -181,7 +166,7 @@ class SolarBoilerAutomation:
             for line in lines[-50:]:
                 parts = line.strip().split()
                 if len(parts) >= 4:  # Ensure there are at least 4 values
-                    grid_value = parts[3]
+                    grid_value = { 'time':  parts[1], 'gridin': parts[2], 'gridout': parts[3]}
                     grid_data.append(grid_value)
                 else:
                     self.logger.error("Invalid data format in a minute of the file.")
@@ -195,6 +180,7 @@ class SolarBoilerAutomation:
             self.logger.error("An error occurred while getting grid data: " + str(e))
 
         return ["N/A"] * 50
+
 
     def activate_relay_heatpump(self):
         try:
@@ -217,30 +203,38 @@ class SolarBoilerAutomation:
             GPIO.output(self.relay_pin_boiler, GPIO.LOW)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_boiler: " + str(e))
-    def run(self):
+    def get_cpu_temperature():
+        try:
+            output = subprocess.check_output(["vcgencmd", "measure_temp"]).decode("utf-8")
+            temperature = float(output.strip().replace("temp=", "").replace("'C\n", ""))
+            return temperature
+        except subprocess.CalledProcessError as e:
+            print("Error:", e)
+        return None
+    def run(self):  
         try:
             self.logger.debug("Checking conditions at minute: " + str(datetime.now()))
-            if self.check_conditions_Heatpump():
-                self.logger.debug("Heatpump: Pin {} actief".format(self.relay_pin_heatpump) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
-                if self.OK_TO_SWITCH:
+            if self.check_conditions_Heatpump(): #
+                self.logger.debug("Heatpump: Pin {} actief (niet draaien)".format(self.relay_pin_heatpump) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
+                if str(self.OK_TO_SWITCH) == "True":
                     self.activate_relay_heatpump()
-                    self.logger.debug("Heatpump: Pin {} aan".format(self.relay_pin_heatpump))
+                    self.logger.debug("Heatpump: Pin {} aan (niet draaien)".format(self.relay_pin_heatpump)) #heatpump pin aan dus moet niet draaien
             else:
-                self.logger.debug("Heatpump: Pin {} actief".format(self.relay_pin_heatpump) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
-                if self.OK_TO_SWITCH:
+                self.logger.debug("Heatpump: Pin {} niet actief (draaien)".format(self.relay_pin_heatpump) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
+                if str(self.OK_TO_SWITCH) == "True":
                     self.deactivate_relay_heatpump()
-                    self.logger.debug("Heatpump: Pin {} uit".format(self.relay_pin_heatpump))
+                    self.logger.debug("Heatpump: Pin {} uit (draaien)".format(self.relay_pin_heatpump)) #heatpump pin uit dus moet draaien    
 
             if self.check_conditions_boiler():
-                self.logger.debug("Boiler: Pin {} actief".format(self.relay_pin_boiler) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
-                if self.OK_TO_SWITCH:
+                self.logger.debug("Boiler: Pin {} actief (niet draaien)".format(self.relay_pin_boiler) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
+                if str(self.OK_TO_SWITCH) == "True":
                     self.activate_relay_boiler()
-                    self.logger.debug("Boiler: Pin {} aan".format(self.relay_pin_boiler))
+                    self.logger.debug("Boiler: Pin {} aan (niet  draaien)".format(self.relay_pin_boiler)) #boiler pin aan dus moet niet draaien
             else:
-                self.logger.debug("Boiler: Pin {} actief".format(self.relay_pin_boiler) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
-                if self.OK_TO_SWITCH:
+                self.logger.debug("Boiler: Pin {} niet actief (draaien)".format(self.relay_pin_boiler) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
+                if str(self.OK_TO_SWITCH) == "True":
                     self.deactivate_relay_boiler()
-                    self.logger.debug("Boiler: Pin {} uit".format(self.relay_pin_boiler))
+                    self.logger.debug("Boiler: Pin {} uit (draaien)".format(self.relay_pin_boiler))  #boiler pin uit dus moet draaien
 
         except KeyboardInterrupt:
             pass
