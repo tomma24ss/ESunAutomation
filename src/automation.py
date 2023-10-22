@@ -1,4 +1,5 @@
 import RPi.GPIO as GPIO
+import math
 from datetime import datetime, timedelta
 import csv,os,time, subprocess
 from src.Invertor.datahandler import DataHandler
@@ -28,16 +29,12 @@ class SolarBoilerAutomation:
         azimuth = 0  # In degrees
         capacity = 12  # In kWp
 
-        self.temp_handler = Temp(latitude, longitude)
+        self.temp_handler = Temp(latitude, longitude, weatherdata_file_path)
         self.solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, productionforecastdata_file_path)
-        self.data_handler = DataHandler(vwspotdata_file_path, weatherdata_file_path)
+        self.data_handler = DataHandler(vwspotdata_file_path)
         self.logger = MyLogger()
         self.duurste_uren_handler = DuursteUrenHandler(csv_file_path, AANTAL_DUURSTE_UREN_6_24, AANTAL_DUURSTE_UREN_0_6, self.logger)
 
-        # Set up GPIO
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
-        GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
 
     def check_conditions_Heatpump(self):
         actief = True   
@@ -55,47 +52,68 @@ class SolarBoilerAutomation:
             elif all(wattage > self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
                 self.logger.debug(f"Heatpump - 10 minutes above {self.HEATPUMP_TOGGLE_WATTAGE}W")
                 actief = False
-
+                return actief
+            
             # TODO
             # Condition 2: Determine the number of hours to be active based on the day-ahead calculation
             # and solar production forecast
-            day_ahead_hours_today = self.duurste_uren_handler.get_alle_uren()  # Replace with the actual method
             
 
 
-            #solar forecast
-            # yesterday = datetime.now() - timedelta(days=1)
-            # formatted_date = yesterday.strftime("%Y%m%d")
-            # yesterday_filename = f"{formatted_date}.txt"
-            # solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)['result']['watts']
-            # self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
+            today = datetime.now()
+            yesterday = today - timedelta(days=1)
+            formatted_date = yesterday.strftime("%Y%m%d")
+            yesterday_filename = f"{formatted_date}.txt"
+
+            solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)
+            kwattnow = 0
+            if solar_production_forecast is not None:
+                solar_production_forecast = solar_production_forecast['result']['watts']
+                current_hour = today.strftime('%Y-%m-%d %H:00:00')
+                if current_hour in solar_production_forecast:
+                    # Get the wattage for the current hour
+                    wattage_now = solar_production_forecast[current_hour]
+                    print(wattage_now)
+                    kwattnow += wattage_now
+                
+                self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
+            else:
+                self.logger.debug(f"Heatpump - production forecast: No file found.. conituing without production forecast")
+
 
 
             #weather
-            current_date = datetime.now().strftime("%Y%m%d")
-            weather_data = self.temp_handler.readfile(f"{current_date}.txt")
+            weather_data = self.temp_handler.readfile(yesterday_filename)
             next_day_temperature, next_day_cloudcover = self.temp_handler.filter_next_day_data(weather_data)
-    
             avg_temperature = self.temp_handler.calculate_avg_temperature(next_day_temperature)
-            
-            
-            
-            
-            self.logger.debug(f"Heatpump - Avg temp today: {round(avg_temperature, 2)}")
-
-            # additional_hours = solar_production_forecast // 5  # Increase hours for every 5kWh of solar production forecast
-            # active_hours = day_ahead_hours_today + additional_hours
-
-            # Check if you need to be active based on the calculated hours
-            # current_hour = self.get_current_hour()  # Replace with the actual method to get the current hour
-            # if current_hour < active_hours:
-            #     actief = True
-            # else:
-            #     actief = False
+            def calculate_added_hours(avg_temperature, threshold_data):
+                for threshold, added_hours in threshold_data:
+                    if avg_temperature < threshold:
+                        return added_hours
+                return None  # Return None if the temperature is higher than all thresholds
+            data = [
+                (5, 6),
+                (10, 9),
+                (15, 12),
+                (20, 19),
+            ]
+            amount_hours_chosen = calculate_added_hours(avg_temperature, data)
+            amount_added_hours_forecast = math.floor(kwattnow / 5000)
+            self.logger.debug(f"Heatpump - KwH forecast: {kwattnow} so {amount_added_hours_forecast} hours")
+            totalhours = amount_hours_chosen + amount_added_hours_forecast
+            self.logger.debug(f"Heatpump - Avg T today(pred): {round(avg_temperature, 2)}° so {amount_hours_chosen} hours")
+            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(totalhours) 
+            self.logger.debug(f"Heatpump - Total hours + forecast: {totalhours}")
+            self.logger.debug(f"Heatpump - Chosen hours: {day_ahead_hours_today}")
+        except FileNotFoundError as file_error:
+            self.logger.error("Heatpump - File not found: " + str(file_error))
+            actief = False
+        except ValueError as value_error:
+            self.logger.error("Heatpump - Value error: " + str(value_error))
+            actief = False
         except Exception as e:
             self.logger.error("Heatpump - An error occurred while checking conditions: " + str(e))
             actief = False
-
         return actief
     
     def check_conditions_boiler(self):
@@ -125,14 +143,14 @@ class SolarBoilerAutomation:
 
                 if consecutive_low_minutes >= 10 or consecutive_high_minutes >= 10:
                     break  # Exit the loop if both conditions are met
-
+            self.logger.debug(f"Boiler - minutes above {self.BOILER_TOGGLE_WATTAGE} : {consecutive_high_minutes}")    
             if consecutive_high_minutes >= 10:
-                actief = True
-                self.logger.debug(f"Boiler - 10 minutes above {self.BOILER_TOGGLE_WATTAGE}W grid in")
-            else:
                 actief = False
+                self.logger.debug(f"Boiler - 10 minutes above {self.BOILER_TOGGLE_WATTAGE}W grid in")
+                return actief
+            else:
+                actief = True
                 self.logger.debug(f"Boiler - 10 minutes under {self.BOILER_TOGGLE_WATTAGE}W grid in")
-                return actief 
 
 
             # Check condition 2: Duurste uren
@@ -184,22 +202,38 @@ class SolarBoilerAutomation:
 
     def activate_relay_heatpump(self):
         try:
+                        # Set up GPIO
+            GPIO.setmode(GPIO.BOARD)
+            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
+            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_heatpump, GPIO.HIGH)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_heatpump: " + str(e))
 
     def deactivate_relay_heatpump(self):
         try:
+                        # Set up GPIO
+            GPIO.setmode(GPIO.BOARD)
+            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
+            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_heatpump, GPIO.LOW)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_heatpump: " + str(e))
     def activate_relay_boiler(self):
         try:
+                        # Set up GPIO
+            GPIO.setmode(GPIO.BOARD)
+            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
+            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_boiler, GPIO.HIGH)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_boiler: " + str(e))
     def deactivate_relay_boiler(self):
         try:
+                        # Set up GPIO
+            GPIO.setmode(GPIO.BOARD)
+            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
+            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_boiler, GPIO.LOW)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_boiler: " + str(e))

@@ -82,3 +82,15 @@
 2023-10-18 20:00:01 - Day Ahead Prices data for tomorrow fetched and saved to /home/pi/Automation/ESunAutomation/src/Eprices/data/day_ahead_prices_20231018.xml.
 2023-10-18 20:00:11 - CSV file generated
 2023-10-18 20:00:01 - Workflow Done
+2023-10-18 21:00:01 - Starting workflow
+2023-10-18 21:00:01 - Day Ahead Prices data for tomorrow fetched and saved to /home/pi/Automation/ESunAutomation/src/Eprices/data/day_ahead_prices_20231018.xml.
+2023-10-18 21:00:12 - CSV file generated
+2023-10-18 21:00:01 - Workflow Done
+2023-10-18 22:00:01 - Starting workflow
+2023-10-18 22:00:01 - Day Ahead Prices data for tomorrow fetched and saved to /home/pi/Automation/ESunAutomation/src/Eprices/data/day_ahead_prices_20231018.xml.
+2023-10-18 22:00:15 - CSV file generated
+2023-10-18 22:00:01 - Workflow Done
+2023-10-18 23:00:01 - Starting workflow
+2023-10-18 23:00:01 - Day Ahead Prices data for tomorrow fetched and saved to /home/pi/Automation/ESunAutomation/src/Eprices/data/day_ahead_prices_20231018.xml.
+2023-10-18 23:00:12 - CSV file generated
+2023-10-18 23:00:01 - Workflow Done

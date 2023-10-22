@@ -72,6 +72,12 @@ class DuursteUrenHandler:
         except Exception as e:
             self.logger.error("An error occurred while getting duurste uren: " + str(e))
             return []
+    def get_duurste_uren(self, amount_hours):
+        alleuren = self.get_alle_uren()
+        sorted_uren = sorted(alleuren, key=lambda x: float(x[2]), reverse=True)
+        most_expensive_hours = sorted_uren[:amount_hours]
+
+        return most_expensive_hours
     def best_uur_wachten(self, hoursneeded):
         try:
             uur_prijs = [{'hour': row[1], 'price':row[2]} for row in self.get_alle_uren()]
