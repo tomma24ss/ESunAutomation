@@ -28,6 +28,10 @@ class SolarBoilerAutomation:
         inclination = 25  # In degrees
         azimuth = 0  # In degrees
         capacity = 12  # In kWp
+        
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
+        GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
 
         self.temp_handler = Temp(latitude, longitude, weatherdata_file_path)
         self.solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, productionforecastdata_file_path)
@@ -42,7 +46,7 @@ class SolarBoilerAutomation:
             # Check condition 1: Grid injection < 600W for 10+ minutes
             wattages = self.data_handler.read_lastdata_txt()
             last_10_wattages = wattages[:10]  # Get the last 10 rows (representing 10 minutes)
-            self.logger.debug("Heatpump - Last 10 minutes: " + str(last_10_wattages))
+            self.logger.debug("Heatpump - Last 10 minutes w: " + str(last_10_wattages))
             # Convert the wattage values to floats
             wattage_values = [float(w) for w in last_10_wattages] if last_10_wattages else []
             self.logger.debug("Heatpump - Avg W for 10 minutes: " + str(sum(wattage_values) / len(wattage_values) ))
@@ -84,6 +88,7 @@ class SolarBoilerAutomation:
 
             #weather
             weather_data = self.temp_handler.readfile(yesterday_filename)
+            if(weather_data is None): raise Exception('weahter data of yesterday not found - exciting Heatpump')
             next_day_temperature, next_day_cloudcover = self.temp_handler.filter_next_day_data(weather_data)
             avg_temperature = self.temp_handler.calculate_avg_temperature(next_day_temperature)
             def calculate_added_hours(avg_temperature, threshold_data):
@@ -202,38 +207,23 @@ class SolarBoilerAutomation:
 
     def activate_relay_heatpump(self):
         try:
-                        # Set up GPIO
-            GPIO.setmode(GPIO.BOARD)
-            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
-            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
+            # Set up GPIO
             GPIO.output(self.relay_pin_heatpump, GPIO.HIGH)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_heatpump: " + str(e))
 
     def deactivate_relay_heatpump(self):
         try:
-                        # Set up GPIO
-            GPIO.setmode(GPIO.BOARD)
-            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
-            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_heatpump, GPIO.LOW)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_heatpump: " + str(e))
     def activate_relay_boiler(self):
         try:
-                        # Set up GPIO
-            GPIO.setmode(GPIO.BOARD)
-            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
-            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_boiler, GPIO.HIGH)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_boiler: " + str(e))
     def deactivate_relay_boiler(self):
         try:
-                        # Set up GPIO
-            GPIO.setmode(GPIO.BOARD)
-            GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
-            GPIO.setup(self.relay_pin_boiler, GPIO.OUT)
             GPIO.output(self.relay_pin_boiler, GPIO.LOW)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_boiler: " + str(e))
@@ -275,6 +265,7 @@ class SolarBoilerAutomation:
 
     def cleanup(self):
         try:
+            self.logger.debug("Cleaning up GPIO")
             GPIO.cleanup()
         except Exception as e:
             self.logger.error("An error occurred while cleaning up GPIO: " + str(e))

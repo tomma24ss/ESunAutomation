@@ -21,5 +21,5 @@ if __name__ == "__main__":
 
     solar_automation.run()
 
-    solar_automation.cleanup()
+    #solar_automation.cleanup()
     
