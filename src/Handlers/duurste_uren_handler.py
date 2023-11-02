@@ -24,7 +24,7 @@ class DuursteUrenHandler:
 
         # Check if the file for yesterday exists and contains data
         yesterday_file_path = os.path.join(self.csv_file_dir, yesterday_filename)
-        if os.path.exists(yesterday_file_path) and os.path.getsize(yesterday_file_path) > 0:
+        if os.path.exists(yesterday_file_path) and os.path.getsize(yesterday_file_path) > 50: #20 bc headers will be always present
             return yesterday_file_path
         else:
             raise FileNotFoundError(f'No {yesterday_filename} file found for yesterdays date')
