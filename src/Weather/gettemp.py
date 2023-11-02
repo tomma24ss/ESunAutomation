@@ -61,7 +61,7 @@ if __name__ == "__main__":
     longitude = 3.7994
     datadir = "/home/pi/Automation/ESunAutomation/src/Weather/data"
 
-    current_date = datetime.now().strftime("%Y%m%d")
+    current_date = datetime.utcnow().strftime("%Y%m%d")
     temp = Temp(latitude, longitude, datadir)
     weather_data = temp.get_weather_data()
     temp.writefile(weather_data, f"{current_date}.txt")

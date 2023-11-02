@@ -64,7 +64,7 @@ if __name__ == "__main__":
     solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, datadir)
     production_forecast = solar_forecast.get_production_forecast()
 
-    current_date = datetime.now().strftime("%Y%m%d")
+    current_date = datetime.utcnow().strftime("%Y%m%d")
     solar_forecast.writefile(production_forecast, f"{current_date}.txt")
 
     # Calculate and print the total production for the day

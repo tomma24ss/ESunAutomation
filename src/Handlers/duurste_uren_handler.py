@@ -18,7 +18,7 @@ class DuursteUrenHandler:
       return latest_file
     def getyesterdayfile(self):
         # Calculate the date for yesterday
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = datetime.utcnow() - timedelta(days=1)
         formatted_date = yesterday.strftime("%Y%m%d")
         yesterday_filename = f"prices_{formatted_date}.csv"
 
@@ -26,10 +26,8 @@ class DuursteUrenHandler:
         yesterday_file_path = os.path.join(self.csv_file_dir, yesterday_filename)
         if os.path.exists(yesterday_file_path) and os.path.getsize(yesterday_file_path) > 0:
             return yesterday_file_path
-
-        # If the file doesn't exist or is empty, fallback to the latest file
-        latest_file = self.getlatestfile()
-        return latest_file
+        else:
+            raise FileNotFoundError(f'No {yesterday_filename} file found for yesterdays date')
 
     def is_duurste_uren(self):
         try:
@@ -53,7 +51,7 @@ class DuursteUrenHandler:
             self.logger.debug("Gekozen Uren met prijs: " + str([{row[1], row[2]} for row in duurste_uren]))
 
             hours_array = [row[1] for row in duurste_uren]
-            now = datetime.now().strftime("%H")
+            now = datetime.utcnow().strftime("%H")
             return now in hours_array
         except Exception as e:
             self.logger.error("An error occurred while checking isduurste uren: " + str(e))
@@ -82,7 +80,7 @@ class DuursteUrenHandler:
         try:
             uur_prijs = [{'hour': row[1], 'price':row[2]} for row in self.get_alle_uren()]
             print(uur_prijs)
-            hournow = datetime.now().strftime("%H")
+            hournow = datetime.utcnow().strftime("%H")
             nexthours = [row['hour'] for row in uur_prijs if row['hour'] > hournow]
             price_now = uur_prijs[int(hournow)]['price']
             amount_nexthours_cheaper = 0

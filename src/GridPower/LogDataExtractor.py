@@ -96,7 +96,7 @@ class LogDataExtractor:
                 os.makedirs(self.output_directory)
 
             # Get the current date in YYYYMMDD format
-            current_date = datetime.now().strftime("%Y%m%d")
+            current_date = datetime.utcnow().strftime("%Y%m%d")
 
             # Define the output file path with the current date
             output_file_path = os.path.join(self.output_directory, f'{current_date}.txt')

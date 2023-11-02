@@ -60,7 +60,7 @@ class SolarBoilerAutomation:
                 return actief
     
             #solarforecast
-            today = datetime.now()
+            today = datetime.utcnow()
             yesterday = today - timedelta(days=1)
             formatted_date = yesterday.strftime("%Y%m%d")
             yesterday_filename = f"{formatted_date}.txt"
@@ -104,13 +104,13 @@ class SolarBoilerAutomation:
             day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(totalhours) 
             self.logger.debug(f"Heatpump - Total hours + forecast: {totalhours}")
             self.logger.debug(f"Heatpump - day_ahead_hours today (already chosen): {day_ahead_hours_today}")
-            self.logger.debug(f"hour of day now: {datetime.now().hour}")
+            self.logger.debug(f"hour of day now(utc): {datetime.utcnow().hour}")
                     
                     #papa: er is nog een 1h verschil tussen prijzen. Om 21h eemt nog de prijs van 20h, wss door verspringen winteruur
                     
                     #papa: die if statement hieronder werkt niet
            
-            if(datetime.now().hour in day_ahead_hours_today[1]):
+            if(datetime.utcnow().hour in [int(datablock[1]) for datablock in day_ahead_hours_today]):
                 self.logger.debug("Heatpump - Zit in duurste uren van de heatpump")
                 actief = True
             else: 
@@ -203,7 +203,7 @@ class SolarBoilerAutomation:
     def get_last_50_grid_data(self):
         try:
             # Get the path to the date.txt file for the current day
-            current_date = datetime.now().strftime("%Y%m%d")
+            current_date = datetime.utcnow().strftime("%Y%m%d")
             data_file_path = os.path.join(self.griddata_file_path, f'{current_date}.txt')
 
             # Read the contents of the file
@@ -263,7 +263,7 @@ class SolarBoilerAutomation:
         return None
     def run(self):  
         try:
-            self.logger.debug("Checking conditions at minute: " + str(datetime.now()))
+            self.logger.debug("Checking conditions at minute: " + str(datetime.utcnow()))
             if self.check_conditions_Heatpump(): #
                 self.logger.debug("Heatpump: Pin {} actief (niet draaien)".format(self.relay_pin_heatpump) + " en OK_TO_SWITCH is " + str(self.OK_TO_SWITCH))
                 if str(self.OK_TO_SWITCH) == "True":

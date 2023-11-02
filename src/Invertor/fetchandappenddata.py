@@ -1,6 +1,7 @@
 import sqlite3
 import datetime
 import os
+import logging
 from dotenv import load_dotenv
 import sys
 sys.path.append("/home/pi/Automation")
@@ -11,7 +12,7 @@ class SolarDataHandler:
         self.db_file = db_file
         self.output_folder = output_folder
         self.conn = None
-        self.logger = MyLogger()
+        self.logger = MyLogger('/home/pi/Automation/ESunAutomation/logs/invertorlogs', logging.WARNING)
 
     def connect(self):
         try:
