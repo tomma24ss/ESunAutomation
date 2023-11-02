@@ -114,7 +114,7 @@ class LogDataExtractor:
 if __name__ == "__main__":
     log_directory = "/var/log/sbfspot.3"
     output_directory = "/home/pi/Automation/ESunAutomation/src/GridPower/griddata"
-    plantname = "Plant"
+    plantname = "MyPlant"
     extractor = LogDataExtractor(log_directory, output_directory, plantname)
     extractor.extract_data()
     extractor.write_data_to_file()

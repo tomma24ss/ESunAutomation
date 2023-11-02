@@ -15,9 +15,12 @@ if __name__ == "__main__":
     productionforecastdata_file_path = os.getenv("PRODUCTIONFORECASTDATA_FILE_PATH")
     AANTAL_DUURSTE_UREN_6_24 = os.getenv("AANTAL_DUURSTE_UREN_6_24")
     AANTAL_DUURSTE_UREN_0_6 = os.getenv("AANTAL_DUURSTE_UREN_0_6")
+    HEATPUMP_TOGGLE_WATTAGE = os.getenv("HEATPUMP_TOGGLE_WATTAGE")
+    BOILER_TOGGLE_WATTAGE_HIGHFEED = os.getenv("BOILER_TOGGLE_WATTAGE_HIGHFEED")
+    BOILER_TOGGLE_WATTAGE_LOWFEED = os.getenv("BOILER_TOGGLE_WATTAGE_LOWFEED")
     OK_TO_SWITCH = os.getenv("OK_TO_SWITCH")
 
-    solar_automation = SolarBoilerAutomation(relay_pin_heatpump, relay_pin_boiler, db_file_path, csv_file_path, vwspotdata_file_path, griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24, AANTAL_DUURSTE_UREN_0_6, OK_TO_SWITCH)
+    solar_automation = SolarBoilerAutomation(relay_pin_heatpump, relay_pin_boiler, db_file_path, csv_file_path, vwspotdata_file_path, griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24, AANTAL_DUURSTE_UREN_0_6, OK_TO_SWITCH, HEATPUMP_TOGGLE_WATTAGE, BOILER_TOGGLE_WATTAGE_HIGHFEED, BOILER_TOGGLE_WATTAGE_LOWFEED)
 
     solar_automation.run()
 

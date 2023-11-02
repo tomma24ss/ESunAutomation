@@ -28,16 +28,17 @@ CSV_OUTPUT_FILE="$CSV_DATA_DIR/prices_${current_date}.csv"
 
 # Create or clear the CSV output file
 echo "Date,Hour,Price" > "$CSV_OUTPUT_FILE"
-
 while IFS= read -r line; do
-  if [[ $line == *"<start>"* ]]; then
-    date=$(echo "$line" | xmlstarlet sel -t -v "//start")
-  elif [[ $line == *"<position>"* ]]; then
-    hour=$(echo "$line" | xmlstarlet sel -t -v "//position")
-  elif [[ $line == *"<price.amount>"* ]]; then
-    price=$(echo "$line" | xmlstarlet sel -t -v "//price.amount")
-    echo "$date,$hour,$price" >> "$CSV_OUTPUT_FILE"
-  fi
+    if [[ $line == *"<start>"* ]]; then
+      date=$(echo "$line" | xmlstarlet sel -t -v "//start")
+    fi
+    if [[ $line == *"<position>"* ]]; then
+      hour=$(echo "$line" | xmlstarlet sel -t -v "//position")
+    fi
+    if [[ $line == *"<price.amount>"* ]]; then
+      price=$(echo "$line" | xmlstarlet sel -t -v "//price.amount")
+      echo "$date,$hour,$price" >> "$CSV_OUTPUT_FILE"
+    fi
 done < "$recent_xml_file"
 
 echo "$TIMESTAMP - CSV file generated" >> "$LOG_FILE"

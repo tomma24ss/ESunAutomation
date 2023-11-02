@@ -2,34 +2,38 @@ import sqlite3
 import datetime
 import os
 from dotenv import load_dotenv
+import sys
+sys.path.append("/home/pi/Automation")
+from ESunAutomation.src.Logger.logger import MyLogger
 
 class SolarDataHandler:
     def __init__(self, db_file, output_folder):
         self.db_file = db_file
         self.output_folder = output_folder
         self.conn = None
+        self.logger = MyLogger()
 
     def connect(self):
         try:
             # Connect to the SQLite database
             self.conn = sqlite3.connect(self.db_file)
-            print("Connected to the database.")
+            self.logger.debug("Connected to the database.")
             return True
         except sqlite3.Error as e:
-            print("SQLite error:", e)
+            self.logger.error(f"SQLite error:{e}")
             return False
 
     def disconnect(self):
         # Close the database connection
         if self.conn:
             self.conn.close()
-            print("Disconnected from the database.")
+            self.logger.debug("Disconnected from the database.")
 
     def fetch_and_append_data_today(self):
         try:
             if not self.conn:
                 if not self.connect():
-                    print("Failed to connect to the database. Cannot fetch data.")
+                    self.logger.error("Failed to connect to the database. Cannot fetch data.")
                     return
 
             cursor = self.conn.cursor()
@@ -62,12 +66,13 @@ class SolarDataHandler:
                     for record in data:
                         file.write(','.join(map(str, record)) + '\n')
 
-                print(f"Data for {today_date} appended to {output_file}")
+                self.logger.debug(f"Data for {today_date} appended to {output_file}")
             else:
-                print(f"No data found for {today_date}.")
+                self.logger.debug(f"No data found for {today_date}.")
 
         except sqlite3.Error as e:
             print("SQLite error:", e)
+            self.logger.error(f"SQLite error:{e}")
         finally:
             self.disconnect()
 

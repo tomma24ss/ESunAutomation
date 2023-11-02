@@ -9,7 +9,7 @@ from src.SolarForecast.solar_forecast import SolarProductionForecast
 from src.Weather.gettemp import Temp
 
 class SolarBoilerAutomation:
-    def __init__(self, relay_pin_heatpump,relay_pin_boiler, db_file, csv_file_path, vwspotdata_file_path,griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False, HEATPUMP_TOGGLE_WATTAGE=300, BOILER_TOGGLE_WATTAGE=1200):
+    def __init__(self, relay_pin_heatpump,relay_pin_boiler, db_file, csv_file_path, vwspotdata_file_path,griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False, HEATPUMP_TOGGLE_WATTAGE=300, BOILER_TOGGLE_WATTAGE_HIGHFEED=1500, BOILER_TOGGLE_WATTAGE_LOWFEED=300):
         self.relay_pin_heatpump = relay_pin_heatpump
         self.relay_pin_boiler = relay_pin_boiler
         self.db_file = db_file
@@ -19,8 +19,9 @@ class SolarBoilerAutomation:
         self.weatherdata_file_path = weatherdata_file_path
         self.productionforecastdata_file_path = productionforecastdata_file_path
         self.OK_TO_SWITCH = OK_TO_SWITCH  # Set to True to start the automation
-        self.HEATPUMP_TOGGLE_WATTAGE = HEATPUMP_TOGGLE_WATTAGE
-        self.BOILER_TOGGLE_WATTAGE = BOILER_TOGGLE_WATTAGE
+        self.HEATPUMP_TOGGLE_WATTAGE = int(HEATPUMP_TOGGLE_WATTAGE)
+        self.BOILER_TOGGLE_WATTAGE_HIGHFEED = int(BOILER_TOGGLE_WATTAGE_HIGHFEED)
+        self.BOILER_TOGGLE_WATTAGE_LOWFEED = int(BOILER_TOGGLE_WATTAGE_LOWFEED)
         self.AANTAL_DUURSTE_UREN_6_24 = AANTAL_DUURSTE_UREN_6_24
         self.AANTAL_DUURSTE_UREN_0_6 = AANTAL_DUURSTE_UREN_0_6
         latitude = 50.93978
@@ -57,13 +58,8 @@ class SolarBoilerAutomation:
                 self.logger.debug(f"Heatpump - 10 minutes above {self.HEATPUMP_TOGGLE_WATTAGE}W")
                 actief = False
                 return actief
-            
-            # TODO
-            # Condition 2: Determine the number of hours to be active based on the day-ahead calculation
-            # and solar production forecast
-            
-
-
+    
+            #solarforecast
             today = datetime.now()
             yesterday = today - timedelta(days=1)
             formatted_date = yesterday.strftime("%Y%m%d")
@@ -82,13 +78,11 @@ class SolarBoilerAutomation:
                 
                 self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
             else:
-                self.logger.debug(f"Heatpump - production forecast: No file found.. conituing without production forecast")
-
-
+                self.logger.debug(f"Heatpump - production forecast: No file found.. continuing without production forecast")
 
             #weather
             weather_data = self.temp_handler.readfile(yesterday_filename)
-            if(weather_data is None): raise Exception('weahter data of yesterday not found - exciting Heatpump')
+            if(weather_data is None): raise Exception('weather data of yesterday not found - exciting Heatpump')
             next_day_temperature, next_day_cloudcover = self.temp_handler.filter_next_day_data(weather_data)
             avg_temperature = self.temp_handler.calculate_avg_temperature(next_day_temperature)
             def calculate_added_hours(avg_temperature, threshold_data):
@@ -97,10 +91,10 @@ class SolarBoilerAutomation:
                         return added_hours
                 return None  # Return None if the temperature is higher than all thresholds
             data = [
-                (5, 6),
-                (10, 9),
+                (5, 4),
+                (10, 8),
                 (15, 12),
-                (20, 19),
+                (20, 16),
             ]
             amount_hours_chosen = calculate_added_hours(avg_temperature, data)
             amount_added_hours_forecast = math.floor(kwattnow / 5000)
@@ -109,7 +103,20 @@ class SolarBoilerAutomation:
             self.logger.debug(f"Heatpump - Avg T today(pred): {round(avg_temperature, 2)}° so {amount_hours_chosen} hours")
             day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(totalhours) 
             self.logger.debug(f"Heatpump - Total hours + forecast: {totalhours}")
-            self.logger.debug(f"Heatpump - Chosen hours: {day_ahead_hours_today}")
+            self.logger.debug(f"Heatpump - day_ahead_hours today (already chosen): {day_ahead_hours_today}")
+            self.logger.debug(f"hour of day now: {datetime.now().hour}")
+                    
+                    #papa: er is nog een 1h verschil tussen prijzen. Om 21h eemt nog de prijs van 20h, wss door verspringen winteruur
+                    
+                    #papa: die if statement hieronder werkt niet
+           
+            if(datetime.now().hour in day_ahead_hours_today[1]):
+                self.logger.debug("Heatpump - Zit in duurste uren van de heatpump")
+                actief = True
+            else: 
+                actief = False
+                self.logger.debug("Heatpump - Zit niet in duurste uren van de heatpump")
+
         except FileNotFoundError as file_error:
             self.logger.error("Heatpump - File not found: " + str(file_error))
             actief = False
@@ -124,12 +131,15 @@ class SolarBoilerAutomation:
     def check_conditions_boiler(self):
         actief = True
         try:
-            X_waarde = self.BOILER_TOGGLE_WATTAGE if GPIO.input(self.relay_pin_boiler) ==  GPIO.HIGH else 0
+            boileraan = GPIO.input(self.relay_pin_boiler) ==  GPIO.HIGH
+            highfeed = self.BOILER_TOGGLE_WATTAGE_HIGHFEED
+            lowfeed = self.BOILER_TOGGLE_WATTAGE_LOWFEED
             # until the production of 1 inverter is higher than 400W for 10 minutes
             grid_data = self.get_last_50_grid_data()  # Replace with the actual method to get inverter production
-            consecutive_low_minutes = 0
-            consecutive_high_minutes = 0
-
+            consecutive_low_minutes_highfeed = 0
+            consecutive_high_minutes_highfeed = 0
+            consecutive_low_minutes_lowfeed = 0
+            consecutive_high_minutes_lowfeed = 0
             lastdata = grid_data[-1]
             grid_in_now = float(lastdata['gridin']) if lastdata['gridin'] != 'N/A' else 0
             grid_out_now = float(lastdata['gridout']) if lastdata['gridout'] != 'N/A' else 0
@@ -137,32 +147,48 @@ class SolarBoilerAutomation:
             for data in grid_data[-10:]:
                 grid_in = float(data['gridin']) if data['gridin'] != 'N/A' else 0
                 #grid_out = float(data['gridout']) if data['gridout'] != 'N/A' else 0
-                if grid_in < X_waarde:
-                    consecutive_low_minutes += 1
-                    consecutive_high_minutes = 0
+                if grid_in <= highfeed:
+                    consecutive_low_minutes_highfeed += 1
+                    consecutive_high_minutes_highfeed = 0
                 else:
-                    consecutive_low_minutes = 0
-                    consecutive_high_minutes += 1
+                    consecutive_low_minutes_highfeed = 0
+                    consecutive_high_minutes_highfeed += 1
+                if grid_in <= lowfeed:
+                    consecutive_low_minutes_lowfeed += 1
+                    consecutive_high_minutes_lowfeed = 0
+                else:
+                    consecutive_low_minutes_lowfeed = 0
+                    consecutive_high_minutes_lowfeed += 1
                     #self.logger.debug("Boiler - Consecutive high minutes: " + str(consecutive_high_minutes))
-                     
-
-                if consecutive_low_minutes >= 10 or consecutive_high_minutes >= 10:
+                if consecutive_low_minutes_highfeed >= 10 or consecutive_high_minutes_highfeed >= 10:
                     break  # Exit the loop if both conditions are met
-            self.logger.debug(f"Boiler - minutes above {self.BOILER_TOGGLE_WATTAGE} : {consecutive_high_minutes}")    
-            if consecutive_high_minutes >= 10:
-                actief = False
-                self.logger.debug(f"Boiler - 10 minutes above {self.BOILER_TOGGLE_WATTAGE}W grid in")
-                return actief
-            else:
+            self.logger.debug(f"Boiler - gridin minutes above {highfeed}w : {consecutive_high_minutes_highfeed}")
+            self.logger.debug(f"Boiler - gridin minutes above {lowfeed}w : {consecutive_high_minutes_lowfeed}")
+            self.logger.debug(f"Boiler - gridin minutes below {lowfeed}w : {consecutive_low_minutes_lowfeed}")
+            
+            
+            if consecutive_low_minutes_lowfeed >= 10 and boileraan: #boiler uit -> kijken naar uren
                 actief = True
-                self.logger.debug(f"Boiler - 10 minutes under {self.BOILER_TOGGLE_WATTAGE}W grid in")
-
+                self.logger.debug(f"Boiler - 10 minutes below {lowfeed}W grid in")
+            if consecutive_high_minutes_lowfeed >= 10 and boileraan:
+                actief = False
+                self.logger.debug(f"Boiler - 10 minutes above {lowfeed}W grid in") #boiler aan -> niet kijken naar uren
+                return actief 
+            if consecutive_high_minutes_highfeed >= 10 and not boileraan:
+                actief = False
+                self.logger.debug(f"Boiler - 10 minutes above {highfeed}W grid in") #boiler aan -> niet kijken naar uren
+                return actief   
 
             # Check condition 2: Duurste uren
             if(self.duurste_uren_handler.is_duurste_uren()):
+                actief = True #papa: dit hier bijgezet
                 self.logger.debug("Boiler - Zit in duurste uren")
-            elif(self.duurste_uren_handler.best_uur_wachten(2)): #2 uur nodig om boiler op te warmen ? wacht nog een uur want gooedkopere uren
-                self.logger.debug("Boiler - Best uur wachten")  
+            
+            #papa:heb dit in comment gezet voor de éénvoud nu
+            #elif(self.duurste_uren_handler.best_uur_wachten(2)): #2 uur nodig om boiler op te warmen ? wacht nog een uur want goedkopere uren
+                #actief = True
+                #self.logger.debug("Boiler - Best uur wachten")  
+            
             else:
                 actief = False
                 self.logger.debug("Boiler - Zit niet in duurste uren") #boiler aan
@@ -208,23 +234,23 @@ class SolarBoilerAutomation:
     def activate_relay_heatpump(self):
         try:
             # Set up GPIO
-            GPIO.output(self.relay_pin_heatpump, GPIO.HIGH)  # Activate the relay
+            GPIO.output(self.relay_pin_heatpump, GPIO.LOW)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_heatpump: " + str(e))
 
     def deactivate_relay_heatpump(self):
         try:
-            GPIO.output(self.relay_pin_heatpump, GPIO.LOW)  # Deactivate the relay
+            GPIO.output(self.relay_pin_heatpump, GPIO.HIGH)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_heatpump: " + str(e))
     def activate_relay_boiler(self):
         try:
-            GPIO.output(self.relay_pin_boiler, GPIO.HIGH)  # Activate the relay
+            GPIO.output(self.relay_pin_boiler, GPIO.LOW)  # Activate the relay
         except Exception as e:
             self.logger.error("An error occurred while activating relay_boiler: " + str(e))
     def deactivate_relay_boiler(self):
         try:
-            GPIO.output(self.relay_pin_boiler, GPIO.LOW)  # Deactivate the relay
+            GPIO.output(self.relay_pin_boiler, GPIO.HIGH)  # Deactivate the relay
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_boiler: " + str(e))
     def get_cpu_temperature():
