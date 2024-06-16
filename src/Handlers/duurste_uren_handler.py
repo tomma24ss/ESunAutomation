@@ -28,7 +28,7 @@ class DuursteUrenHandler:
             return yesterday_file_path
         else:
             raise FileNotFoundError(f'No {yesterday_filename} file found for yesterdays date')
-
+            
     def is_duurste_uren(self):
         try:
             alle_uren = self.get_alle_uren()
@@ -48,11 +48,15 @@ class DuursteUrenHandler:
 
             duurste_uren = hours_07_to_24[0:int(self.AANTAL_DUURSTE_UREN_6_24)] + hours_00_to_07[0:int(self.AANTAL_DUURSTE_UREN_0_6)]
             duurste_uren.sort(key=lambda x: float(x[1]), reverse=True)
-            self.logger.debug("Gekozen Uren met prijs: " + str([{row[1], row[2]} for row in duurste_uren]))
+            self.logger.debug("Gekozen uren: " + str(duurste_uren))
+            gekozen_uren_met_prijs = [{'hour': row[1], 'price': row[2]} for row in duurste_uren]
+            self.logger.debug("Gekozen Uren met prijs: " + str(gekozen_uren_met_prijs))
 
-            hours_array = [row[1] for row in duurste_uren]
-            now = datetime.utcnow().strftime("%H")
+            hours_array = [int(row[1]) for row in duurste_uren]
+            now = int(datetime.utcnow().strftime("%H")) + 2
+            self.logger.debug(f"uren {now}")
             return now in hours_array
+         
         except Exception as e:
             self.logger.error("An error occurred while checking isduurste uren: " + str(e))
             return False
@@ -80,7 +84,7 @@ class DuursteUrenHandler:
         try:
             uur_prijs = [{'hour': row[1], 'price':row[2]} for row in self.get_alle_uren()]
             print(uur_prijs)
-            hournow = datetime.utcnow().strftime("%H")
+            hournow = datetime.utcnow().strftime("%H") + 2
             nexthours = [row['hour'] for row in uur_prijs if row['hour'] > hournow]
             price_now = uur_prijs[int(hournow)]['price']
             amount_nexthours_cheaper = 0

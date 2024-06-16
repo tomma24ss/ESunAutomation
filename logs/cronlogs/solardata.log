@@ -50,3 +50,15 @@
 2023-11-01
 2023-11-01
 2023-11-01
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device
+(23) Failed writing body
+/home/pi/Automation/ESunAutomation/src/Eprices/get_csv.sh: line 30: echo: write error: No space left on device

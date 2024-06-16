@@ -2,14 +2,14 @@ import re
 import os
 import sys
 import glob
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.append('/home/pi/Automation/ESunAutomation/src')
 from Logger.logger import MyLogger  # Import the MyLogger class
 
 class LogDataExtractor:
-    def __init__(self, log_directory, output_directory, plantname):
-        self.log_directory = log_directory
+    def __init__(self, sbfspotlog_directory, output_directory, plantname):
+        self.sbfspotlog_directory = sbfspotlog_directory
         self.output_directory = output_directory
         self.plantname = plantname
         self.data = None
@@ -17,8 +17,8 @@ class LogDataExtractor:
 
     def find_latest_log_file(self):
         # Get a list of all log files in the directory
-        log_files = glob.glob(os.path.join(self.log_directory, f'{self.plantname}_*.log'))
-
+        log_files = glob.glob(os.path.join(self.sbfspotlog_directory, f'{self.plantname}_*.log'))
+        
         if log_files:
             # Sort log files by modification time (newest first)
             log_files.sort(key=os.path.getmtime, reverse=True)
@@ -30,15 +30,15 @@ class LogDataExtractor:
         try:
             # Find the latest log file in the directory
             latest_log_file = self.find_latest_log_file()
-            
+            self.logger.debug(f'Log file found')
             if latest_log_file:
                 with open(latest_log_file, 'r') as log_file:
                     log_data = log_file.read()
-                    #print(log_data)
+                    #self.logger.debug(f'Log data {log_data}')
                 pattern = r'\*{20}\n\* ArchiveDayData\(\) \*\n\*{20}([\s\S]*?Inverter Sleep Time\s+:\s+\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})'
                 matches = re.findall(pattern, log_data, re.MULTILINE | re.DOTALL)
-
                 lastlog = matches[-1]
+                #print(len(matches))
                 timestamp = self.extract_timestamp(lastlog)
                 grid_power_out = self.extract_grid_power_out(lastlog)
                 grid_power_in = self.extract_grid_power_in(lastlog)
@@ -47,7 +47,7 @@ class LogDataExtractor:
                 self.data = [timestamp, grid_power_out, grid_power_in]
 
             else:
-                self.logger.error(f'No log files found in {self.log_directory}')  # Log an error message instead of printing
+                self.logger.error(f'No log files found in {self.sbfspotlog_directory}')  # Log an error message instead of printing
 
         except FileNotFoundError:
             self.logger.error(f'Log file not found at {latest_log_file}')  # Log an error message instead of printing
@@ -96,7 +96,7 @@ class LogDataExtractor:
                 os.makedirs(self.output_directory)
 
             # Get the current date in YYYYMMDD format
-            current_date = datetime.utcnow().strftime("%Y%m%d")
+            current_date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
             # Define the output file path with the current date
             output_file_path = os.path.join(self.output_directory, f'{current_date}.txt')
@@ -112,9 +112,9 @@ class LogDataExtractor:
 
 # Usage
 if __name__ == "__main__":
-    log_directory = "/var/log/sbfspot.3"
+    sbfspotlog_directory = "/var/log/sbfspot.3"
     output_directory = "/home/pi/Automation/ESunAutomation/src/GridPower/griddata"
     plantname = "MyPlant"
-    extractor = LogDataExtractor(log_directory, output_directory, plantname)
+    extractor = LogDataExtractor(sbfspotlog_directory, output_directory, plantname)
     extractor.extract_data()
     extractor.write_data_to_file()

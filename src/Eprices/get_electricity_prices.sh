@@ -19,16 +19,23 @@ get_day_ahead_prices() {
     local current_date=$(date +"%Y%m%d")
     local tomorrow_date=$(date -d "+1 day" +"%Y%m%d")
     local output_file="$DATA_DIR/day_ahead_prices_${current_date}.xml"
-    #papa:deze onder werkt voor de prijs van morgen, maar enkel naar 14h elke dag wat normaal is. Xml is correct maar CSV niet
     local api_endpoint="/api?securityToken=$TOKEN&documentType=A44&in_Domain=10YBE----------2&out_Domain=10YBE----------2&periodStart=${tomorrow_date}0000&periodEnd=${tomorrow_date}2300"
-    # Make the API request using cURL and save the output to the file
-    curl -s "$API_URL$api_endpoint" -o "$output_file"
-
-    # Check if the request was successful (HTTP status code 200)
-    if [ $? -eq 0 ]; then
-        echo "$TIMESTAMP - Day Ahead Prices data for tomorrow fetched and saved to $output_file." >> "$LOG_FILE"
+    # Make the API request using cURL and temporarily store output
+    local response=$(curl -s -w "%{http_code}" -o temp.xml "$API_URL$api_endpoint")
+    
+    # Check if the HTTP status code is 200 (OK)
+    if [ "${response}" -eq 200 ]; then
+        # Check if the temporary file is not empty
+        if [ -s temp.xml ]; then
+            mv temp.xml "$output_file"
+            echo "$TIMESTAMP - Day Ahead Prices data for tomorrow fetched and saved to $output_file." >> "$LOG_FILE"
+        else
+            echo "$TIMESTAMP - Error: No data received from the API." >> "$LOG_FILE"
+            rm temp.xml  # Clean up empty temporary file
+        fi
     else
-        echo "$TIMESTAMP - Error: Failed to fetch Day Ahead Prices data for tomorrow from the API." >> "$LOG_FILE"
+        echo "$TIMESTAMP - Error: Failed to fetch Day Ahead Prices data for tomorrow from the API. HTTP status code: ${response}." >> "$LOG_FILE"
+        rm temp.xml  # Clean up temporary file
     fi
 }
 
