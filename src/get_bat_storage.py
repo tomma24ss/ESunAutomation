@@ -31,6 +31,8 @@ def log_bat_state(storage_capacity, login_error=False):
     new_lines.append(message)
     with open(filename, 'w') as file:  # Overwrite the file with cleaned records
         file.writelines(new_lines)
+    
+    
     if login_error:
         print(f"Login error logged at {formatted_time}")
     else:

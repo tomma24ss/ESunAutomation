@@ -53,8 +53,8 @@ class DuursteUrenHandler:
             self.logger.debug("Gekozen Uren met prijs: " + str(gekozen_uren_met_prijs))
 
             hours_array = [int(row[1]) for row in duurste_uren]
-            now = int(datetime.utcnow().strftime("%H")) + 2
-            self.logger.debug(f"uren {now}")
+            now = int(datetime.utcnow().strftime("%H"))
+            self.logger.debug(f"uur {now}")
             return now in hours_array
          
         except Exception as e:
