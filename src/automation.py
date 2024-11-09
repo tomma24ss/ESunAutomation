@@ -2,6 +2,7 @@ import os
 import RPi.GPIO as GPIO
 import math
 from datetime import datetime, timedelta
+import pytz
 import csv
 import time
 import subprocess
@@ -15,12 +16,13 @@ from astral.sun import sun
 from astral import LocationInfo
 
 class SolarBoilerAutomation:
-    def __init__(self, relay_pin_heatpump, relay_pin_boiler, relay_pin_vent, relay_pin_bat, relay_pin_tesla, db_file, csv_file_path, vwspotdata_file_path, griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False, HEATPUMP_TOGGLE_WATTAGE=300, BOILER_TOGGLE_WATTAGE_HIGHFEED=1500, BOILER_TOGGLE_WATTAGE_LOWFEED=300):
+    def __init__(self, relay_pin_heatpump, relay_pin_boiler, relay_pin_vent, relay_pin_bat, relay_pin_tesla, relay_pin_lbs, db_file, csv_file_path, vwspotdata_file_path, griddata_file_path, weatherdata_file_path, productionforecastdata_file_path, AANTAL_DUURSTE_UREN_6_24=13, AANTAL_DUURSTE_UREN_0_6=3, OK_TO_SWITCH=False, HEATPUMP_TOGGLE_WATTAGE=300, BOILER_TOGGLE_WATTAGE_HIGHFEED=1500, BOILER_TOGGLE_WATTAGE_LOWFEED=300):
         self.relay_pin_heatpump = relay_pin_heatpump
         self.relay_pin_boiler = relay_pin_boiler
         self.relay_pin_vent = relay_pin_vent
         self.relay_pin_bat = relay_pin_bat
         self.relay_pin_tesla = relay_pin_tesla
+        self.relay_pin_lbs = relay_pin_lbs
         self.db_file = db_file
         self.csv_file_path = csv_file_path
         self.vwspotdata_file_path = vwspotdata_file_path
@@ -34,11 +36,13 @@ class SolarBoilerAutomation:
         self.AANTAL_DUURSTE_UREN_6_24 = AANTAL_DUURSTE_UREN_6_24
         self.AANTAL_DUURSTE_UREN_0_6 = AANTAL_DUURSTE_UREN_0_6
         self.last_bat_on_time = None  # Track the last time battery was set to on
+        self.locked_charging_hour = None
         latitude = 50.93978
         longitude = 3.7994
         inclination = 25  # In degrees
         azimuth = 0  # In degrees
         capacity = 12  # In kWp
+        
         
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.relay_pin_heatpump, GPIO.OUT)
@@ -46,6 +50,7 @@ class SolarBoilerAutomation:
         GPIO.setup(self.relay_pin_vent, GPIO.OUT)
         GPIO.setup(self.relay_pin_bat, GPIO.OUT)
         GPIO.setup(self.relay_pin_tesla, GPIO.OUT)
+        GPIO.setup(self.relay_pin_lbs, GPIO.OUT)
 
         self.temp_handler = Temp(latitude, longitude, weatherdata_file_path)
         self.solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, productionforecastdata_file_path)
@@ -180,36 +185,46 @@ class SolarBoilerAutomation:
 
         return pin_35_active
 
+    from datetime import datetime, timedelta
+    import pytz  # Use pytz for timezone handling
+    from astral import LocationInfo
+    from astral.sun import sun
+
     def check_conditions_Heatpump(self):
-        actief = True   
+        actief = True
+
         try:
-            # Get current date and time
-            now = datetime.now()
-            
+            # Get the current local time using pytz for timezone handling
+            local_tz = pytz.timezone("Europe/Brussels")  # Use your specific local timezone
+            now = datetime.now(local_tz)
+
             # Define location (e.g., 'City, Country')
             city = LocationInfo("Oosterzele", "Belgium")
-            
-            # Get today's sunrise and sunset times
+
+            # Get today's sunrise and sunset times in local time
             s = sun(city.observer, date=now)
             sunrise = s['sunrise'].time()
             sunset = s['sunset'].time()
-            
-             # Adjust sunrise and sunset times
-            adjusted_sunrise = (datetime.combine(now, sunrise) + timedelta(hours=4)).time()
+
+            # Adjust sunrise and sunset times
+            adjusted_sunrise = (datetime.combine(now, sunrise) + timedelta(hours=1)).time()
             adjusted_sunset = (datetime.combine(now, sunset) - timedelta(hours=0)).time()
 
-            # Check if current date is within the specified period (1 June to 30 September)
-            if now.month >= 4 and now.month <= 9:
+            # Check if current date is within the specified period (1 April to 30 September)
+            if now.month >= 4 and now.month <= 8:
                 # Check if current time is between sunset and sunrise
                 if now.time() > adjusted_sunset or now.time() < adjusted_sunrise:
-                    self.logger.debug("Heatpump - Not running during sundown from 1 April to 30 September")
+                    self.logger.debug("Heatpump - Not running during sundown from 1 April to 30 August")
                     return True
                 else:
-                    self.logger.debug("Heatpump - Continue during sunrise from 1 April to 30 September")
-                
+                    self.logger.debug("Heatpump - Continue during sunrise from 1 April to 30 August")
+
+            # Fetch the last 10 minutes of wattage data
             wattages = self.data_handler.read_lastdata_txt()
             last_10_wattages = wattages[:10]
             self.logger.debug("Heatpump - Last 10 minutes w: " + str(last_10_wattages))
+
+            # Process wattage data
             wattage_values = [float(w) for w in last_10_wattages] if last_10_wattages else []
             if all(wattage < self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
                 self.logger.debug(f"Heatpump - last 10 minutes under {self.HEATPUMP_TOGGLE_WATTAGE}W => go to next heatpump check")
@@ -218,7 +233,7 @@ class SolarBoilerAutomation:
                 self.logger.debug(f"Heatpump ON - last 10 minutes above {self.HEATPUMP_TOGGLE_WATTAGE}W")
                 actief = False
                 return actief
-    
+
             feed = 500
             grid_data = self.get_last_50_grid_data()
             consecutive_low_minutes_feed = 0
@@ -238,73 +253,87 @@ class SolarBoilerAutomation:
                     consecutive_high_minutes_feed += 1
             self.logger.debug(f"Heatpump - gridin minutes above {feed}w : {consecutive_high_minutes_feed}")
             self.logger.debug(f"Heatpump - gridin minutes below {feed}w : {consecutive_low_minutes_feed}")
-            
-            if consecutive_low_minutes_feed >= 10 : 
+
+            if consecutive_low_minutes_feed >= 10:
                 actief = True
                 self.logger.debug(f"Heatpump - 10 minutes below {feed}W grid in => go to time check")
-            if consecutive_high_minutes_feed >= 10 :
+            if consecutive_high_minutes_feed >= 10:
                 actief = False
                 self.logger.debug(f"Heatpump aan - 10 minutes above {feed}W grid in => go to boiler")
-                return actief 
-            
+                return actief
+
+            # Calculate solar production forecast
             today = datetime.utcnow()
-            #today = datetime.now(datetime.UTC)
             yesterday = today - timedelta(days=1)
             formatted_date = yesterday.strftime("%Y%m%d")
             yesterday_filename = f"{formatted_date}.txt"
 
             solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)
-            
             watt_today = 0
             if solar_production_forecast is not None:
                 solar_production_forecast = solar_production_forecast['result']['watts']
-                self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
-            
+                #self.logger.debug(f"Heatpump - production forecast: {solar_production_forecast}")
+
                 today = datetime.now().strftime("%Y-%m-%d")
                 for datetime_string, wattage in solar_production_forecast.items():
                     if datetime_string.startswith(today):
                         watt_today += wattage
-                        
             else:
                 self.logger.debug(f"Heatpump - production forecast: No file found.. continuing without production forecast")
-            
+
             self.logger.debug(f"Heatpump - watt_today: {watt_today}")
 
+            # Calculate added hours based on average temperature and forecast
             weather_data = self.temp_handler.readfile(yesterday_filename)
-            if(weather_data is None): raise Exception('weather data of yesterday not found - exciting Heatpump')
+            if weather_data is None:
+                raise Exception('weather data of yesterday not found - exiting Heatpump')
             next_day_temperature, next_day_cloudcover = self.temp_handler.filter_next_day_data(weather_data)
             avg_temperature = self.temp_handler.calculate_avg_temperature(next_day_temperature)
-            def calculate_added_hours(avg_temperature, threshold_data):
-                for threshold, added_hours in threshold_data:
-                    if avg_temperature < threshold:
-                        return added_hours
-                return None
+
             data = [
-                (0, 2),
-                (2, 3),
-                (5, 8),
-                (7, 10),
+                (0, 7),
+                (2, 8),
+                (5, 10),
+                (7, 12),
                 (10, 14),
                 (15, 18),
                 (25, 12),
-                (35, 15),
+                (35, 12),
             ]
-            amount_hours_chosen = calculate_added_hours(avg_temperature, data)
-                       
-            amount_added_hours_forecast = math.floor((watt_today - 9000) / 5000)
+            amount_hours_chosen = next((added_hours for threshold, added_hours in data if avg_temperature < threshold), None)
+
+            amount_added_hours_forecast = max(0, (watt_today - 9000) // 5000)
             self.logger.debug(f"Heatpump - Watt forecast: {watt_today} so added {amount_added_hours_forecast} hours")
 
             totalhours = amount_hours_chosen + amount_added_hours_forecast
             self.logger.debug(f"Heatpump - Avg T today(pred): {round(avg_temperature, 2)}° so {amount_hours_chosen} hours")
-            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(totalhours) 
-            self.logger.debug(f"Heatpump - Total hours + forecast: {totalhours}")
+            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(totalhours)
             self.logger.debug(f"Heatpump - day_ahead_hours today (already chosen): {day_ahead_hours_today}")
-            self.logger.debug(f"hour of day now(utc): {datetime.utcnow().hour}")
-           
-            if((datetime.utcnow().hour) in [int(datablock[1]) for datablock in day_ahead_hours_today]):
+            #
+            # Assuming you're using a specific timezone, e.g., Europe/Brussels
+            timezone = pytz.timezone("Europe/Brussels")
+
+            # Get the current time in the local timezone
+            now = datetime.now(timezone)
+
+            # Add one hour to the current local time
+            hour_plus_one = now.hour + 1
+
+            # Apply the custom hour logic to handle "24" and no "hour 0"
+            if hour_plus_one == 24:
+                adjusted_hour = 24
+            elif hour_plus_one == 0:
+                adjusted_hour = 1
+            else:
+                adjusted_hour = hour_plus_one
+            
+            self.logger.debug(f"hour of day local +1 (adjusted): {adjusted_hour}")
+                
+            # Check if the adjusted hour is in the list of the most expensive hours
+            if adjusted_hour in [int(datablock[1]) for datablock in day_ahead_hours_today]:
                 self.logger.debug("Heatpump - Zit in duurste uren")
                 actief = True
-            else: 
+            else:
                 actief = False
                 self.logger.debug("Heatpump - Zit niet in duurste uren")
 
@@ -317,35 +346,14 @@ class SolarBoilerAutomation:
         except Exception as e:
             self.logger.error("Heatpump - An error occurred while checking conditions: " + str(e))
             actief = False
+
         return actief
-    
+
     def check_conditions_boiler(self):
         actief = True
         try:
            # Get current date and time
-            now = datetime.now()
-            
-            # Define location (e.g., 'City, Country')
-            city = LocationInfo("Oosterzele", "Belgium")
-            
-            # Get today's sunrise and sunset times
-            s = sun(city.observer, date=now)
-            sunrise = s['sunrise'].time()
-            sunset = s['sunset'].time()
-
-            # Adjust sunrise and sunset times
-            adjusted_sunrise = (datetime.combine(now, sunrise) + timedelta(hours=4)).time()
-            adjusted_sunset = (datetime.combine(now, sunset) - timedelta(hours=0)).time()
-
-            # Check if current date is within the specified period (1 June to 30 September)
-            if now.month >= 4 and now.month <= 9:
-                # Check if current time is between sunset and sunrise
-                if now.time() > adjusted_sunset or now.time() < adjusted_sunrise:
-                    self.logger.debug("Boiler - Not running during sundown from 1 April to 30 September")
-                    return True
-                else:
-                    self.logger.debug("Boiler - Continue during sunrise from 1 April to 30 Septembe")
-            
+            now = datetime.now()    
             boileraan = GPIO.input(self.relay_pin_boiler) == GPIO.HIGH
             highfeed = self.BOILER_TOGGLE_WATTAGE_HIGHFEED
             lowfeed = self.BOILER_TOGGLE_WATTAGE_LOWFEED
@@ -405,64 +413,7 @@ class SolarBoilerAutomation:
         return actief
     
     def check_conditions_vent(self):
-        actief = True
-        local_hour = datetime.now().hour  # Adjusted for local time
-        if 7 <= local_hour < 23:
-            self.logger.debug("Vent - on between 07:00 and 23:00")
-            return False  # Ensures the vent runs during these hours
-
-        try:
-            wattages = self.data_handler.read_lastdata_txt()
-            last_10_wattages = wattages[:10]
-            self.logger.debug("Vent - Last 10 minutes w: " + str(last_10_wattages))
-            wattage_values = [float(w) for w in last_10_wattages] if last_10_wattages else []
-
-            if all(wattage < self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
-                self.logger.debug(f"Vent - last 10 minutes under {self.HEATPUMP_TOGGLE_WATTAGE}W => continue check")
-                actief = True
-            elif all(wattage > self.HEATPUMP_TOGGLE_WATTAGE for wattage in wattage_values):
-                self.logger.debug(f"Vent- on, last 10 minutes above {self.HEATPUMP_TOGGLE_WATTAGE}W")
-                actief = False
-                return actief
-
-            feed = 20
-            grid_data = self.get_last_50_grid_data()
-            consecutive_low_minutes_feed = 0
-            consecutive_high_minutes_feed = 0
-            lastdata = grid_data[-1]
-            grid_in_now = float(lastdata['gridin']) if lastdata['gridin'] != 'N/A' else 0
-            grid_out_now = float(lastdata['gridout']) if lastdata['gridout'] != 'N/A' else 0
-            self.logger.debug("Vent - Grid in: " + str(grid_in_now) + " Grid out: " + str(grid_out_now))
-
-            for data in grid_data[-10:]:
-                grid_in = float(data['gridin']) if data['gridin'] != 'N/A' else 0
-                if grid_in <= feed:
-                    consecutive_low_minutes_feed += 1
-                    consecutive_high_minutes_feed = 0
-                else:
-                    consecutive_low_minutes_feed = 0
-                    consecutive_high_minutes_feed += 1
-
-            self.logger.debug(f"Vent - gridin minutes above {feed}W : {consecutive_high_minutes_feed}")
-            self.logger.debug(f"Vent - gridin minutes below {feed}W : {consecutive_low_minutes_feed}")
-            
-            if consecutive_low_minutes_feed >= 10:
-                actief = True
-                self.logger.debug(f"Vent - 10 minutes below {feed}W grid in => go to bat")
-            if consecutive_high_minutes_feed >= 10:
-                actief = False
-                self.logger.debug(f"Vent - 10 minutes above {feed}W grid in => go to bat")
-                return actief
-
-        except FileNotFoundError as file_error:
-            self.logger.error("Vent - File not found: " + str(file_error))
-            actief = False
-        except ValueError as value_error:
-            self.logger.error("Vent - Value error: " + str(value_error))
-            actief = False
-        except Exception as e:
-            self.logger.error("Vent - An error occurred while checking conditions: " + str(e))
-            actief = False
+        actief = False
         return actief
 
     def check_conditions_Tesla(self):
@@ -470,34 +421,35 @@ class SolarBoilerAutomation:
         file_path = '/home/pi/Automation/ESunAutomation/logs/bat_states.txt'
         log_directory = '/home/pi/Automation/ESunAutomation/logs'
         local_hour = datetime.now().hour  # Adjusted for local time
-        
+
         try:
             with open(file_path, 'r') as file:
                 lines = file.readlines()
                 if not lines:
-                    self.logger.debug("Tesla - Battery log file is empty.")
+                    self.logger.debug("Solar boiler - Battery log file is empty.")
                     return False
 
                 last_line = lines[-1].strip()
                 timestamp_str, value = last_line.split(" - ")
                 battery_value = float(value)
                 time_last_line = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                
+
                 # Check if battery value is recent
                 if (datetime.now() - time_last_line) > timedelta(minutes=20):
-                    self.logger.debug(f"Tesla - Battery value {battery_value} is not valid because it is too old.")
+                    self.logger.debug(f"Solar boiler - Battery value {battery_value} is not valid because it is too old.")
                     return False
                 else:
-                    self.logger.debug(f"Tesla - Battery value {battery_value} has correct time check.")
-                
-                # Check if battery value is between 80 and 75
-                if battery_value > 80 or (self.check_pin_35_active(log_directory) and battery_value > 75):
-                        self.logger.debug(f"Tesla - Battery value {battery_value} >90 or btw 90 en 95 => Tesla charging active")
-                        return True 
-                else:
-                    self.logger.debug("Tesla - charging OFF")
-                    return actief    
-                
+                    self.logger.debug(f"Solar boiler - Battery value {battery_value} has correct time check.")
+
+                # Check if battery value is between 95 and 97 or higher
+                if battery_value > 97 or (self.check_pin_35_active(log_directory) and battery_value > 95):
+                    self.logger.debug(f"Solar boiler - Battery value {battery_value} >95 or btw 92 en 97 => Solar boiler charging active")
+                    return True
+                else: 
+                   self.logger.debug(f"Solar boiler - Battery not charged enough => solar boiler charging inactive")
+                        
+            return actief
+
         except FileNotFoundError as file_error:
             self.logger.error(f"Bat - File not found: {str(file_error)}")
             return False
@@ -508,135 +460,89 @@ class SolarBoilerAutomation:
             self.logger.error(f"Bat - An error occurred while checking battery file: {str(e)}")
             return False
         
-        #local_hour = datetime.now().hour  # Adjusted for local time
-        #if 0 <= local_hour < 24:
-            #self.logger.debug("Bat - Bat always ON until on/off when low charge is solved.")
-            #return False  
-        #return actief
-
     def check_conditions_Bat(self):
-        actief = True
+        actief = True  # True means not running (system is off)
         log_directory = '/home/pi/Automation/ESunAutomation/logs'
         file_path = '/home/pi/Automation/ESunAutomation/logs/bat_states.txt'
         consumption_file = os.path.join(log_directory, "consumption_today.txt")
 
         try:
+            self.logger.debug("BAT: Starting battery condition check.")
+
+            # Reading battery log file
+            self.logger.debug(f"BAT: Reading battery log file: {file_path}")
             with open(file_path, 'r') as file:
                 lines = file.readlines()
                 if not lines:
-                    self.logger.debug("Bat - Battery log file is empty.")
-                    return False
+                    self.logger.debug("BAT: Battery log file is empty.")
+                    return True  # No need to run
 
                 last_line = lines[-1].strip()
+                self.logger.debug(f"BAT: Last line in battery log: {last_line}")
                 timestamp_str, value = last_line.split(" - ")
                 battery_value = float(value.split()[0])
                 time_last_line = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                
+
                 # Check if battery value is recent
                 if (datetime.now() - time_last_line) > timedelta(minutes=20):
-                    self.logger.debug(f"Bat - Battery value {battery_value} is not valid because it is too old")
-                    return False
+                    self.logger.debug(f"BAT: Battery value {battery_value} is too old (last update: {time_last_line})")
+                    return True  # Battery data is outdated, no need to run
                 else:
-                    self.logger.debug(f"Bat - Battery value {battery_value} has correct time check.")
-                    
+                    self.logger.debug(f"BAT: Battery value {battery_value} is recent (last update: {time_last_line})")
+
                     # Check if battery value is below 30 or charging and below 35
                     if battery_value < 30:
-                        self.logger.debug(f"Bat - Battery value {battery_value} < 30 => activate charge")
-                        return False
-                    else:
-                        if self.check_pin_36_active(log_directory) and battery_value < 35:
-                            self.logger.debug(f"Bat - pin 36 active and below 35 => continue charge")
-                            return False   
+                        self.logger.debug(f"BAT: Battery value {battery_value} < 30 => activate charge")
+                        return False  # System should run to charge
+                    elif self.check_pin_36_active(log_directory) and battery_value < 35:
+                        self.logger.debug(f"BAT: Pin 36 active and battery value {battery_value} < 35 => continue charge")
+                        return False  # Continue charging
 
         except FileNotFoundError as file_error:
-            self.logger.error(f"Bat - File not found: {str(file_error)}")
-            return False
+            self.logger.error(f"BAT: File not found: {str(file_error)}")
+            return True  # No file, no need to run
         except ValueError as value_error:
-            self.logger.error(f"Bat - Value error: {str(value_error)}")
-            return False
+            self.logger.error(f"BAT: Value error: {str(value_error)}")
+            return True  # No valid data, no need to run
         except Exception as e:
-            self.logger.error(f"Bat - An error occurred while checking battery file: {str(e)}")
-            return False
+            self.logger.error(f"BAT: An error occurred while checking battery file: {str(e)}")
+            return True  # Error occurred, stop running
+
+        self.logger.debug("BAT: Battery value and pin check completed.")
 
         if self.check_pin_36_active(log_directory) and (battery_value > 95):
-                self.logger.debug("Bat - battery sufficient loaded btw 90 and 95")
-                return True              
-        
-        else:
-            if battery_value > 90:
-                self.logger.debug(f"Bat - battery sufficient loaded") 
-                return True
-        
-        try:
-            bataan = GPIO.input(self.relay_pin_bat) == GPIO.HIGH
-            highfeed = 4000
-            lowfeed = 200
-            grid_data = self.get_last_50_grid_data()
-            consecutive_low_minutes_highfeed = 0
-            consecutive_high_minutes_highfeed = 0
-            consecutive_low_minutes_lowfeed = 0
-            consecutive_high_minutes_lowfeed = 0
-            lastdata = grid_data[-1]
-            grid_in_now = float(lastdata['gridin']) if lastdata['gridin'] != 'N/A' else 0
-            grid_out_now = float(lastdata['gridout']) if lastdata['gridout'] != 'N/A' else 0
-            self.logger.debug(f"Bat - Grid in: {grid_in_now} Grid out: {grid_out_now}")
+            self.logger.debug(f"BAT: Battery sufficiently charged: {battery_value} > 95, no charging needed.")
+            return True  # System should not run
+        elif battery_value > 90:
+            self.logger.debug(f"BAT: Battery sufficiently loaded {battery_value}, no charging needed.")
+            return True  # System should not run
 
-            for data in grid_data[-10:]:
-                grid_in = float(data['gridin']) if data['gridin'] != 'N/A' else 0
-                if grid_in <= highfeed:
-                    consecutive_low_minutes_highfeed += 1
-                    consecutive_high_minutes_highfeed = 0
-                else:
-                    consecutive_low_minutes_highfeed = 0
-                    consecutive_high_minutes_highfeed += 1
-                if grid_in <= lowfeed:
-                    consecutive_low_minutes_lowfeed += 1
-                    consecutive_high_minutes_lowfeed = 0
-                else:
-                    consecutive_low_minutes_lowfeed = 0
-                    consecutive_high_minutes_lowfeed += 1
-            self.logger.debug(f"Bat - gridin minutes above {highfeed}w : {consecutive_high_minutes_highfeed}")
-            self.logger.debug(f"Bat - gridin minutes above {lowfeed}w : {consecutive_high_minutes_lowfeed}")
-            self.logger.debug(f"Bat - gridin minutes below {lowfeed}w : {consecutive_low_minutes_lowfeed}")
+        try:
+            self.logger.debug("BAT: Proceeding to grid data and consumption forecast analysis.")
             
-            if consecutive_low_minutes_lowfeed >= 10 and bataan:
-                actief = True
-                self.logger.debug(f"Bat uit - 10 minutes below {lowfeed}W grid in")
-            if consecutive_high_minutes_lowfeed >= 10 and bataan:
-                actief = False
-                self.logger.debug(f"Bat aan - 10 minutes above {lowfeed}W grid in")
-                return actief 
-            if consecutive_high_minutes_highfeed >= 10 and not bataan:
-                actief = False
-                self.logger.debug(f"Bat aan - 10 minutes above {highfeed}W grid in")
-                return actief   
-            
-            today = datetime.utcnow()
+            # Read grid data
+            grid_data = self.get_last_50_grid_data()
+            self.logger.debug(f"BAT: Last grid data: {grid_data[-1]}")
+
+            # Use local time for calculations
+            local_timezone = pytz.timezone('Europe/Berlin')  # Adjust according to your local timezone
+            today = datetime.now(local_timezone)
+            self.logger.debug(f"BAT: Current local time: {today}")
+
+            # Read solar production forecast
             yesterday = today - timedelta(days=1)
             formatted_date = yesterday.strftime("%Y%m%d")
             yesterday_filename = f"{formatted_date}.txt"
-
+            self.logger.debug(f"BAT: Reading solar forecast from: {yesterday_filename}")
             solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)
-            
-            watt_today = 0
-            if solar_production_forecast is not None:
-                solar_production_forecast = solar_production_forecast['result']['watts']
-                self.logger.debug(f"Bat - production forecast: {solar_production_forecast}")
-            
-                today = datetime.now().strftime("%Y-%m-%d")
-                for datetime_string, wattage in solar_production_forecast.items():
-                    if datetime_string.startswith(today):
-                        watt_today += wattage
-                        
-            else:
-                self.logger.debug(f"Bat - production forecast: No file found.. continuing without production forecast")
-            
-            self.logger.debug(f"Bat - watt_today: {watt_today}")           
-                
-            # Read the consumption data from the file
+
+            # Initialize variables
+            forecast_dict = {}
             consumption_data = []
             consumption_dict = {}
 
+            # Reading consumption data
+            self.logger.debug(f"BAT: Reading consumption data from file: {consumption_file}")
             with open(consumption_file, 'r') as file:
                 for line in file:
                     timestamp_str, consumption_str = line.strip().split(" - ")
@@ -645,109 +551,200 @@ class SolarBoilerAutomation:
                     consumption_data.append((hour, consumption))
                     consumption_dict[timestamp_str] = consumption
 
-            # Log the entire consumption data dictionary in one line
-            self.logger.debug(f"Consumption data: {consumption_dict}")
-    
-            # If consumption data is not available, use default
-            if not consumption_data:
-                self.logger.debug("Bat - No consumption data found, using default.")
-                consumption_data = [
-                    (0, 350), (1, 350), (2, 350), (3, 350), (4, 450), (5, 350), (6, 350), 
-                    (7, 550), (8, 550), (9, 550), (10, 550), (11, 550), (12, 550), (13, 550), 
-                    (14, 550), (15, 550), (16, 550), (17, 550), (18, 1000), (19, 1000), 
-                    (20, 1000), (21, 1000), (22, 550), (23, 500), (24, 550)
-                ]
+            # Convert battery value to Wh (assuming 100% = 10KWh)
+            battery_forecast_value = battery_value * 100
 
-            battery_forecast_value = battery_value * 100  # Convert to Wh assuming 100% = 10KWh
+            # Initialize cumulative deficit
+            cumulative_deficit = 0
+            critical_hour_found = False
 
-            current_hour = datetime.now().hour
-            forecast_dict = {}
-
-            for hour in range(current_hour, 24):
+            self.logger.debug("BAT: Generating forecast for each hour of the day.")
+            for hour in range(today.hour, 24):  # Local hours
+                forecast_time_str = f"{today.strftime('%Y-%m-%d')} {hour:02d}:00:00"
                 consumption = next((c for h, c in consumption_data if h == hour), 0)
-                production = solar_production_forecast.get(f"{today} {hour:02d}:00:00", 0)
+                production = solar_production_forecast.get('result', {}).get('watts', {}).get(forecast_time_str, 0)
+                projected_battery_value = battery_forecast_value - consumption + production
                 
-                # Update battery forecast value with reduced production impact
-                battery_forecast_value = battery_forecast_value - (consumption * 1) + (production * 0.7)
-                battery_forecast_value = max(0, min(10000, battery_forecast_value))  # Clamp between 0 and 10000Wh
-                
-                # Add the forecast data to the dictionary
-                forecast_time_str = f"{today} {hour:02d}:00:00"
-                forecast_dict[forecast_time_str] = battery_forecast_value
+                if projected_battery_value < 5000 and not critical_hour_found:
+                    critical_hour_found = True
+                    critical_hour = hour
+                    self.logger.debug(f"BAT: Critical hour found at hour {hour}: Battery projected to drop below 5000 Wh.")
 
-            # Log the forecast dictionary
-            self.logger.debug(f"Bat - battery charge forecast: {forecast_dict}")
+                projected_battery_value = min(10000, max(0, projected_battery_value))
+                battery_forecast_value = projected_battery_value
+                if battery_forecast_value < 5000:
+                    cumulative_deficit += 5000 - battery_forecast_value
 
-            # Get the list of hours sorted by cost or priority
+                if critical_hour_found and hour >= critical_hour:
+                    break
+
+            charge_rate_per_hour = 2000  # 2kWh per hour
+            hours_needed_for_charging = int((cumulative_deficit + charge_rate_per_hour - 1) // charge_rate_per_hour)
+
             day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(24)
-            self.logger.debug(f"Day ahead hours today (before sorting): {day_ahead_hours_today}")
+            sorted_day_ahead_hours = sorted(day_ahead_hours_today, key=lambda x: float(x[2]))
+            self.logger.debug(f"BAT: Sorted day ahead: {sorted_day_ahead_hours}")
 
-            # Sort by price to ensure cheaper hours are considered first
-            day_ahead_hours_today.sort(key=lambda x: float(x[2]))  # Assuming the price is at index 2
-            self.logger.debug(f"Day ahead hours today (sorted by price): {day_ahead_hours_today}")
+            if hours_needed_for_charging > 0:
+                if critical_hour <= today.hour:
+                    critical_hour = 24  
 
-            # Identify hours where battery falls below the threshold
-            hours_below_threshold = {hour: value for hour, value in forecast_dict.items() if value < 3000}
-            self.logger.debug(f"Bat - Hours with battery forecast below 3000 Wh: {hours_below_threshold}")
+                for hour_data in sorted_day_ahead_hours:
+                    hour = int(hour_data[1])
+                    forecast_time_str = f"{today.strftime('%Y-%m-%d')} {hour:02d}:00:00"
 
-            # Assume a charge per hour value of 1kWh
-            charge_per_hour = 1000
-            remaining_hours_to_charge = []
-            updated_forecast_dict = forecast_dict.copy()
+                    if today.hour <= hour < critical_hour:
+                        self.locked_charging_hour = forecast_time_str
+                        self.logger.debug(f"BAT: Selected and locked cheapest charging hour: {self.locked_charging_hour}")
+                        actief = False
+                        break
 
-            # Work backwards from the first hour that drops below 3000 Wh
-            for hour in sorted(hours_below_threshold.keys()):
-                while updated_forecast_dict[hour] < 3000:
-                    # Select the cheapest available hour that has not been used yet
-                    for cheapest_hour in day_ahead_hours_today:
-                        cheapest_hour_int = int(cheapest_hour[1])
-                        
-                        # Ensure the charging hour is close to and before the hour where the battery falls below 3000 Wh
-                        if cheapest_hour_int < int(hour.split(" ")[1].split(":")[0]):
-                            # Check if this charging hour meaningfully impacts the critical hour
-                            future_hour = f"{today} {cheapest_hour_int:02d}:00:00"
-                            if future_hour in updated_forecast_dict and updated_forecast_dict[future_hour] + charge_per_hour >= 3000:
-                                if cheapest_hour_int not in remaining_hours_to_charge:
-                                    # Simulate charging by adding charge and subtracting consumption
-                                    consumption = next((c for h, c in consumption_data if h == cheapest_hour_int), 0)
-                                    forecast_update = charge_per_hour - consumption
-                                    updated_forecast_dict[hour] += forecast_update
-                                    remaining_hours_to_charge.append(cheapest_hour_int)
-                                    self.logger.debug(f"Bat - Charging at {cheapest_hour_int}:00 to prevent drop below 3000 Wh")
-                                    
-                                    # Recalculate the forecast for subsequent hours
-                                    for h in range(cheapest_hour_int + 1, 24):
-                                        h_str = f"{today} {h:02d}:00:00"
-                                        if h_str in updated_forecast_dict:
-                                            updated_forecast_dict[h_str] = max(0, min(10000, updated_forecast_dict[h_str] + forecast_update))
-                                    break
-                    else:
-                        break  # No valid hour found; exit loop
+            if self.locked_charging_hour:
+                current_hour = today.hour
+                current_minute = today.minute
+                locked_hour = int(self.locked_charging_hour[-8:-6])
 
-            self.logger.debug(f"Bat - Selected charging hours: {remaining_hours_to_charge}")
-            self.logger.debug(f"Bat - Updated battery charge forecast after planned charging: {updated_forecast_dict}")
+                if current_hour == locked_hour or (current_hour == locked_hour and current_minute < 59):
+                    self.logger.debug("BAT: In the selected charging hour. System is running.")
+                    actief = False
+                else:
+                    self.logger.debug("BAT: Locked hour has passed, ensuring system is not running.")
+                    actief = True
 
-            # Final time check using the updated forecast
-            if (datetime.utcnow().hour) in remaining_hours_to_charge:
-                self.logger.debug("Bat - Currently within selected charging hours")
-                actief = False
-            else: 
-                actief = True
-                self.logger.debug("Bat - Currently not within selected charging hours")
-
-        except FileNotFoundError as file_error:
-            self.logger.error(f"Bat - File not found: {str(file_error)}")
-            actief = False
-        except ValueError as value_error:
-            self.logger.error(f"Bat - Value error: {str(value_error)}")
-            actief = False
         except Exception as e:
-            self.logger.error(f"Bat - An error occurred while checking conditions: {str(e)}")
-            actief = False
+            self.logger.error(f"BAT: An error occurred while checking conditions: {str(e)}")
+            actief = True
 
         return actief
 
 
+
+    def check_conditions_LBS(self, morning_hours=1, day_hours=2):
+        self.logger.debug("LBS - Starting check_conditions_LBS")
+
+        # Check if the Tesla conditions are active
+        if self.check_conditions_Tesla():
+            self.logger.debug("LBS - Solar boiler viavia conditions are active, so LBS will not be activated.")
+            return False
+
+        actief = False  # Initialize actief
+
+        # Use local time for the current date
+        today = datetime.now()
+        self.logger.debug(f"LBS - Current local date and time: {today}")
+
+        # Calculate yesterday's date for filename (if needed)
+        yesterday = today - timedelta(days=1)
+        #self.logger.debug(f"LBS - Calculated yesterday's date: {yesterday}")
+
+        formatted_date = yesterday.strftime("%Y%m%d")
+        #self.logger.debug(f"LBS - Formatted yesterday's date for filename: {formatted_date}")
+
+        yesterday_filename = f"{formatted_date}.txt"
+        #self.logger.debug(f"LBS - Yesterday's filename: {yesterday_filename}")
+
+        # Assuming the solar production forecast file is in local time:
+        solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)
+
+        watt_today = 0
+        if solar_production_forecast is not None:
+            solar_production_forecast = solar_production_forecast['result']['watts']
+            #self.logger.debug(f"LBS - Solar production forecast data: {solar_production_forecast}")
+
+            today_str = today.strftime("%Y-%m-%d")
+            #self.logger.debug(f"LBS - Today's date string: {today_str}")
+
+            for datetime_string, wattage in solar_production_forecast.items():
+                if datetime_string.startswith(today_str):
+                    watt_today += wattage
+            self.logger.debug(f"LBS - Calculated total watt_today: {watt_today}")
+        else:
+            self.logger.debug("LBS - No solar production forecast file found, continuing without it.")
+
+        self.logger.debug(f"LBS - Final watt_today value: {watt_today}")
+        
+        # Get the current day of the week
+        current_day = datetime.today().weekday()
+
+        # Set threshold based on weekday/weekend
+        if current_day < 5:  # Weekdays (0 = Monday, ..., 4 = Friday)
+            threshold = 10000
+            self.logger.debug(f"LBS - Weekday detected. Threshold set to {threshold}")    
+            
+        else:  # Weekends (5 = Saturday, 6 = Sunday)
+            threshold = 20000
+            self.logger.debug(f"LBS - Weekend detected. Threshold set to {threshold}")
+                
+        # Check if watt_today is below the appropriate threshold
+        if watt_today < threshold:
+            self.logger.debug(f"LBS - watt_today is less than {threshold}, proceeding with hour selection.")
+            
+            # Retrieve the list of hours sorted by price or priority
+            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(24)
+            #self.logger.debug(f"LBS - Retrieved day ahead hours: {day_ahead_hours_today}")
+
+            sorted_day_ahead_hours = sorted(day_ahead_hours_today, key=lambda x: float(x[2]))
+            #self.logger.debug(f"LBS - Sorted day ahead hours by price: {sorted_day_ahead_hours}")
+
+            selected_hours = []
+            early_morning_hours = []
+            daytime_hours = []
+
+            # Parse the hour from index 1, which represents the local hour corresponding to the time slot
+            for hour in sorted_day_ahead_hours:
+                hour_of_day = int(hour[1])  # Hour of the day is at index 1
+                if 0 <= hour_of_day < 6:
+                    early_morning_hours.append(hour)
+                elif 6 <= hour_of_day < 24:
+                    daytime_hours.append(hour)
+            
+            #self.logger.debug(f"LBS - Collected early morning hours (00:00-06:00): {early_morning_hours}")
+            #self.logger.debug(f"LBS - Collected daytime hours (06:00-24:00): {daytime_hours}")
+
+            if len(early_morning_hours) >= morning_hours:
+                selected_hours.extend(early_morning_hours[:morning_hours])
+                self.logger.debug(f"LBS - Selected morning hours: {early_morning_hours[:morning_hours]}")
+            else:
+                self.logger.debug(f"LBS - Not enough early morning hours available, selected: {early_morning_hours}")
+
+            if len(daytime_hours) >= day_hours:
+                selected_hours.extend(daytime_hours[:day_hours])
+                self.logger.debug(f"LBS - Selected daytime hours: {daytime_hours[:day_hours]}")
+            else:
+                self.logger.debug(f"LBS - Not enough daytime hours available, selected: {daytime_hours}")
+
+            unique_selected_hours = list(set(tuple(hour) for hour in selected_hours))
+            #self.logger.debug(f"LBS - Unique selected hours: {unique_selected_hours}")
+
+            current_hour = today.hour + 1  # The day-ahead hour corresponds to the local time slot's end hour
+            #self.logger.debug(f"LBS - Current local hour (adjusted to match day-ahead slot): {current_hour}")
+
+            # Find the price for the current hour and log it
+            current_hour_price = None
+            for hour in day_ahead_hours_today:
+                hour_of_day = int(hour[1])
+                if current_hour == hour_of_day:
+                    current_hour_price = hour[2]
+                    break
+
+            self.logger.debug(f"LBS - Price for the current hour {current_hour}: {current_hour_price}")
+
+            # Check if the current hour matches any of the selected hours
+            for hour in unique_selected_hours:
+                hour_of_day = int(hour[1])
+                if current_hour == hour_of_day:
+                    self.logger.debug(f"LBS - Current hour {current_hour} matches selected hour {hour_of_day}. Activating LBS.")
+                    actief = True
+                    break
+            else:
+                self.logger.debug(f"LBS - Current hour {current_hour} does not match any selected hours. LBS will not be activated.")
+
+        else:
+            self.logger.debug(f"LBS - watt_today {watt_today} is more than {threshold}, LBS will not be activated.")
+
+        self.logger.debug(f"LBS - Returning actief: {actief}")
+        return actief
+    
     def get_last_50_grid_data(self):
         try:
             current_date = datetime.utcnow().strftime("%Y%m%d")
@@ -805,13 +802,13 @@ class SolarBoilerAutomation:
         try:
             GPIO.output(self.relay_pin_tesla, GPIO.LOW)
         except Exception as e:
-            self.logger.error("An error occurred while activating relay_tesla: " + str(e))   
+            self.logger.error("An error occurred while activating relay_largeboiler: " + str(e))   
     
     def deactivate_relay_tesla(self):
         try:
             GPIO.output(self.relay_pin_tesla, GPIO.HIGH)
         except Exception as e:
-            self.logger.error("An error occurred while deactivating relay_tesla: " + str(e))
+            self.logger.error("An error occurred while deactivating relay_largeboiler: " + str(e))
     def activate_relay_bat(self):
         try:
             GPIO.output(self.relay_pin_bat, GPIO.LOW)
@@ -822,6 +819,17 @@ class SolarBoilerAutomation:
             GPIO.output(self.relay_pin_bat, GPIO.HIGH)
         except Exception as e:
             self.logger.error("An error occurred while deactivating relay_bat: " + str(e))
+    
+    def activate_relay_lbs(self):
+        try:
+            GPIO.output(self.relay_pin_lbs, GPIO.LOW)
+        except Exception as e:
+            self.logger.error("An error occurred while activating relay_lbs: " + str(e))   
+    def deactivate_relay_lbs(self):
+        try:
+            GPIO.output(self.relay_pin_lbs, GPIO.HIGH)
+        except Exception as e:
+            self.logger.error("An error occurred while deactivating relay_lbs: " + str(e))
     
     def run(self):  
         try:
@@ -856,13 +864,14 @@ class SolarBoilerAutomation:
                     self.deactivate_relay_vent()
 
             if self.check_conditions_Tesla():
-                self.logger.debug(f"Tesla: Pin {self.relay_pin_tesla} active (running)")
+                self.logger.debug(f"Large boiler: Pin {self.relay_pin_tesla} active (large boiler running on solar)")
                 if str(self.OK_TO_SWITCH) == "True":
                     self.activate_relay_tesla()
             else:
-                self.logger.debug(f"Tesla: Pin {self.relay_pin_tesla} not active (not running)")
+                self.logger.debug(f"Large Boiler: Pin {self.relay_pin_tesla} not active (large boiler not running on solar)")
                 if str(self.OK_TO_SWITCH) == "True":
                     self.deactivate_relay_tesla()
+            
             if self.check_conditions_Bat():
                 self.logger.debug(f"Bat: Pin {self.relay_pin_bat} active (not running)")
                 if str(self.OK_TO_SWITCH) == "True":
@@ -871,12 +880,22 @@ class SolarBoilerAutomation:
                 self.logger.debug(f"Bat: Pin {self.relay_pin_bat} not active (running)")
                 if str(self.OK_TO_SWITCH) == "True":
                     self.deactivate_relay_bat()
-                
+            
+            if self.check_conditions_LBS():
+                self.logger.debug(f"Lbs: Pin {self.relay_pin_lbs} active (solar boiler running from grid)")
+                if str(self.OK_TO_SWITCH) == "True":
+                    self.activate_relay_lbs()
+            else:
+                self.logger.debug(f"Lbs: Pin {self.relay_pin_lbs} not active (solar boiler not running from grid)")
+                if str(self.OK_TO_SWITCH) == "True":
+                    self.deactivate_relay_lbs()
+            
             self.log_pin_state(self.relay_pin_heatpump, GPIO.input(self.relay_pin_heatpump))
             self.log_pin_state(self.relay_pin_boiler, GPIO.input(self.relay_pin_boiler))
             self.log_pin_state(self.relay_pin_vent, GPIO.input(self.relay_pin_vent))
             self.log_pin_state(self.relay_pin_bat, GPIO.input(self.relay_pin_bat))
             self.log_pin_state(self.relay_pin_tesla, GPIO.input(self.relay_pin_tesla))
+            self.log_pin_state(self.relay_pin_lbs, GPIO.input(self.relay_pin_lbs))
         
         except KeyboardInterrupt:
             pass

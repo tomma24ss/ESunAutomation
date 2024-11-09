@@ -58,7 +58,7 @@ if __name__ == "__main__":
     longitude = 3.79940
     inclination = 25  # In degrees
     azimuth = 0  # In degrees
-    capacity = 12  # In kWp
+    capacity = 8  # In kWp
     datadir = "/home/pi/Automation/ESunAutomation/src/SolarForecast/data"
 
     solar_forecast = SolarProductionForecast(latitude, longitude, inclination, azimuth, capacity, datadir)

@@ -10,7 +10,7 @@ TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 
 # API URL and token
 API_URL="https://web-api.tp.entsoe.eu"
-TOKEN="5a4b409d-69f5-4b05-a932-168759fe7589"
+TOKEN="c9de6ed7-5c65-42f1-8471-e85a41f1c4bd"
 
 # Data directory
 DATA_DIR="/home/pi/Automation/ESunAutomation/src/Eprices/data"

@@ -104,7 +104,7 @@ class DuursteUrenHandler:
         try:
             uur_prijs = [{'hour': row[1], 'price':row[2]} for row in self.get_alle_uren()]
             print(uur_prijs)
-            hournow = datetime.utcnow().strftime("%H")
+            hournow = datetime.utcnow().strftime("%H") + 2
             nexthours = [row['hour'] for row in uur_prijs if row['hour'] > hournow]
             price_now = uur_prijs[int(hournow)]['price']
             amount_nexthours_cheaper = 0

@@ -44,8 +44,8 @@ if weather_df is None:
 
 # --- Simulate Base Consumption Data ---
 date_range = pd.date_range(start=f'{current_year}-01-01', end=f'{current_year}-12-31 23:00:00', freq='H', tz='UTC')
-daily_pattern = np.array([0.5, 0.3, 0.3, 0.3, 0.4, 0.5, 0.7, 1.0, 0.8, 0.7, 0.7, 0.7,
-                          0.6, 0.6, 0.7, 0.7, 0.8, 0.9, 1.0, 0.8, 0.7, 0.6, 0.5, 0.4])
+daily_pattern = np.array([0.5, 0.35, 0.35, 0.35, 0.4, 1.0, 0.7, 1.0, 0.8, 0.7, 0.7, 0.7,
+                          0.6, 0.6, 0.7, 0.7, 0.8, 0.9, 1.0, 0.8, 0.8, 0.8, 0.6, 0.6])
 base_consumption = np.tile(daily_pattern, len(date_range) // 24)
 monthly_adjustment = np.array([1.1, 1.1, 1.0, 0.9, 0.8, 0.7, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2])
 seasonal_adjustment = np.repeat(monthly_adjustment, len(date_range) // 12)
@@ -72,7 +72,7 @@ consumption_df.loc[consumption_df['is_holiday'], 'adjusted_consumption_kwh'] *= 
 
 # --- Weekend Adjustments ---
 consumption_df['is_weekend'] = consumption_df['date_time'].dt.dayofweek >= 5
-weekend_adjustment_factor = 1.05
+weekend_adjustment_factor = 1.2
 consumption_df.loc[consumption_df['is_weekend'], 'adjusted_consumption_kwh'] *= weekend_adjustment_factor
 
 # --- Save Today's Consumption Data to a Text File ---
