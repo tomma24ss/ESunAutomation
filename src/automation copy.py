@@ -518,14 +518,14 @@ class SolarBoilerAutomation:
             return True  # System should not run
 
         try:
-            self.logger.debug("BAT: Starting battery condition check.")
-
+            self.logger.debug("BAT: Proceeding to grid data and consumption forecast analysis.")
+            
             # Read grid data
             grid_data = self.get_last_50_grid_data()
             self.logger.debug(f"BAT: Last grid data: {grid_data[-1]}")
 
             # Use local time for calculations
-            local_timezone = pytz.timezone('Europe/Berlin')
+            local_timezone = pytz.timezone('Europe/Berlin')  # Adjust according to your local timezone
             today = datetime.now(local_timezone)
             self.logger.debug(f"BAT: Current local time: {today}")
 
@@ -536,33 +536,35 @@ class SolarBoilerAutomation:
             self.logger.debug(f"BAT: Reading solar forecast from: {yesterday_filename}")
             solar_production_forecast = self.solar_forecast.readfile(yesterday_filename)
 
+            # Initialize variables
+            forecast_dict = {}
+            consumption_data = []
+            consumption_dict = {}
+
             # Reading consumption data
             self.logger.debug(f"BAT: Reading consumption data from file: {consumption_file}")
-            consumption_data = []
             with open(consumption_file, 'r') as file:
                 for line in file:
                     timestamp_str, consumption_str = line.strip().split(" - ")
                     hour = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S").hour
                     consumption = int(float(consumption_str.split()[0]) * 1000)  # Convert kWh to Wh
                     consumption_data.append((hour, consumption))
-            self.logger.debug(f"BAT: Consumption data for today: {consumption_data}")
+                    consumption_dict[timestamp_str] = consumption
 
-            # Convert battery value to Wh and initialize variables
+            # Convert battery value to Wh (assuming 100% = 10KWh)
             battery_forecast_value = battery_value * 100
-            self.logger.debug(f"BAT: Initial battery forecast value (Wh): {battery_forecast_value}")
+
+            # Initialize cumulative deficit
             cumulative_deficit = 0
             critical_hour_found = False
 
-            # Forecast and determine critical hour
             self.logger.debug("BAT: Generating forecast for each hour of the day.")
-            for hour in range(today.hour, 24):
-                consumption = next((c for h, c in consumption_data if h == hour), 0)
+            for hour in range(today.hour, 24):  # Local hours
                 forecast_time_str = f"{today.strftime('%Y-%m-%d')} {hour:02d}:00:00"
+                consumption = next((c for h, c in consumption_data if h == hour), 0)
                 production = solar_production_forecast.get('result', {}).get('watts', {}).get(forecast_time_str, 0)
                 projected_battery_value = battery_forecast_value - consumption + production
-                self.logger.debug(f"BAT: Hour {hour}: Consumption = {consumption}, Production = {production}")
-                self.logger.debug(f"BAT: Hour {hour}: Projected battery value = {projected_battery_value}")
-
+                
                 if projected_battery_value < 5000 and not critical_hour_found:
                     critical_hour_found = True
                     critical_hour = hour
@@ -572,59 +574,42 @@ class SolarBoilerAutomation:
                 battery_forecast_value = projected_battery_value
                 if battery_forecast_value < 5000:
                     cumulative_deficit += 5000 - battery_forecast_value
-                    self.logger.debug(f"BAT: Cumulative deficit updated: {cumulative_deficit}")
 
-            # Charging hours calculation
-            charge_rate_per_hour = 2000  # 2kWh per hour
-            hours_needed_for_charging = int((cumulative_deficit + charge_rate_per_hour - 1) // charge_rate_per_hour)
-            self.logger.debug(f"BAT: Total hours needed for charging based on cumulative deficit: {hours_needed_for_charging}")
-
-            # Retrieve and sort day-ahead hours by price, adjusting hour indexing
-            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(24)
-            sorted_day_ahead_hours = sorted(day_ahead_hours_today, key=lambda x: float(x[2]))
-            self.logger.debug(f"BAT: Sorted day ahead hours: {sorted_day_ahead_hours}")
-
-            # Initialize locked_hours
-            if not hasattr(self, 'locked_hours') or not self.locked_hours:
-                self.locked_hours = []
-                self.logger.debug("BAT: locked_hours was empty; recalculating charging hours.")
-
-            # Calculate remaining minutes in the current hour
-            remaining_minutes_in_current_hour = 60 - today.minute
-            minutes_charged = 0
-
-            # Include current hour if there's sufficient time
-            if today.minute < 59 and today.hour < critical_hour:
-                current_hour_str = f"{today.strftime('%Y-%m-%d')} {today.hour:02d}:00:00"
-                self.locked_hours.append(current_hour_str)
-                minutes_charged += remaining_minutes_in_current_hour
-                self.logger.debug(f"BAT: Locked partial hour immediately: {current_hour_str} with {remaining_minutes_in_current_hour} minutes")
-
-            # Lock additional hours based on sorted prices and critical hour constraint
-            for hour_data in sorted_day_ahead_hours:
-                if minutes_charged >= hours_needed_for_charging * 60:
+                if critical_hour_found and hour >= critical_hour:
                     break
 
-                # Adjust hour indexing from 1-24 to 0-23
-                hour = int(hour_data[1]) - 1
-                if today.hour < hour < critical_hour:
-                    next_hour_str = f"{today.strftime('%Y-%m-%d')} {hour:02d}:00:00"
-                    if next_hour_str not in self.locked_hours:
-                        self.locked_hours.append(next_hour_str)
-                        minutes_charged += 60
-                        self.logger.debug(f"BAT: Locked cheapest charging hour: {next_hour_str}")
+            charge_rate_per_hour = 2000  # 2kWh per hour
+            hours_needed_for_charging = int((cumulative_deficit + charge_rate_per_hour - 1) // charge_rate_per_hour)
 
-            # Log final locked hours for the day
-            self.logger.debug(f"BAT: Final locked_hours for charging today: {self.locked_hours}")
+            day_ahead_hours_today = self.duurste_uren_handler.get_duurste_uren(24)
+            sorted_day_ahead_hours = sorted(day_ahead_hours_today, key=lambda x: float(x[2]))
+            self.logger.debug(f"BAT: Sorted day ahead: {sorted_day_ahead_hours}")
 
-            # Check if current time is within any locked charging hour
-            current_hour_str = f"{today.strftime('%Y-%m-%d')} {today.hour:02d}:00:00"
-            if current_hour_str in self.locked_hours:
-                self.logger.debug("BAT: In a selected charging hour. System is running.")
-                actief = False
-            else:
-                self.logger.debug("BAT: No locked hour currently active, ensuring system is not running.")
-                actief = True
+            if hours_needed_for_charging > 0:
+                if critical_hour <= today.hour:
+                    critical_hour = 24  
+
+                for hour_data in sorted_day_ahead_hours:
+                    hour = int(hour_data[1])
+                    forecast_time_str = f"{today.strftime('%Y-%m-%d')} {hour:02d}:00:00"
+
+                    if today.hour <= hour < critical_hour:
+                        self.locked_charging_hour = forecast_time_str
+                        self.logger.debug(f"BAT: Selected and locked cheapest charging hour: {self.locked_charging_hour}")
+                        actief = False
+                        break
+
+            if self.locked_charging_hour:
+                current_hour = today.hour
+                current_minute = today.minute
+                locked_hour = int(self.locked_charging_hour[-8:-6])
+
+                if current_hour == locked_hour or (current_hour == locked_hour and current_minute < 59):
+                    self.logger.debug("BAT: In the selected charging hour. System is running.")
+                    actief = False
+                else:
+                    self.logger.debug("BAT: Locked hour has passed, ensuring system is not running.")
+                    actief = True
 
         except Exception as e:
             self.logger.error(f"BAT: An error occurred while checking conditions: {str(e)}")
